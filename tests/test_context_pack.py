@@ -48,3 +48,13 @@ def test_missing_key_raises(tmp_path):
     f.write_text(json.dumps(d))
     with pytest.raises(ContextPackError, match="missing field: jurisdiction"):
         load_context_pack(str(f))
+
+
+def test_non_string_field_raises(tmp_path):
+    with open(VALID, encoding="utf-8") as fh:
+        d = json.load(fh)
+    d["jurisdiction"] = 42
+    f = tmp_path / "p.json"
+    f.write_text(json.dumps(d))
+    with pytest.raises(ContextPackError, match="field must be a string: jurisdiction"):
+        load_context_pack(str(f))
