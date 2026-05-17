@@ -1,13 +1,5 @@
 from robin.loop import run_turn
-from robin.models import ContextPack
 from tests.fakes import FakeLLM
-
-PACK = ContextPack(
-    caller_name="Demo User", callback_number="+15550000001",
-    target_name="24 Hour Gym", target_display_number="415-776-2200",
-    receptionist_to_number="+15550000002", jurisdiction="US-CA",
-    win_goal="cancel + refund", fallback_goal="cancel",
-)
 
 
 def _text(blocks):
@@ -64,7 +56,7 @@ async def test_loop_caps_at_six_tool_turns():
         "x", [], system="SYS", llm=llm,
         tool_impls={"research_cancellation_law": loop_tool})]
     assert out[-1].get("interim") is not True
-    assert len(llm.calls) <= 6
+    assert len(llm.calls) == 6
 
 
 async def test_history_is_included_in_messages():

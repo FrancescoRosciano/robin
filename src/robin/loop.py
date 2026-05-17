@@ -1,5 +1,5 @@
 """Claude tool-call loop. interim ack -> (<=6 tool turns) -> final text."""
-from typing import AsyncIterator, Callable
+from typing import AsyncGenerator, Callable
 
 from robin.tools import TOOL_SCHEMAS
 
@@ -15,13 +15,13 @@ def _content_text(content) -> str:
     return " ".join(p.strip() for p in parts if p).strip()
 
 
-def _tool_uses(content):
+def _tool_uses(content) -> list:
     return [b for b in content
             if isinstance(b, dict) and b.get("type") == "tool_use"]
 
 
 async def run_turn(transcript: str, history: list, *, system: str, llm,
-                   tool_impls: dict[str, Callable]) -> AsyncIterator[dict]:
+                   tool_impls: dict[str, Callable]) -> AsyncGenerator[dict, None]:
     """Yield NDJSON-ready dicts: one interim ack, then the final text."""
     yield {"text": _INTERIM_ACK, "interim": True}
 
