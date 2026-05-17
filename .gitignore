@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 *.local.json
+context_pack.json
 context_pack.local.json
 
 # Python
