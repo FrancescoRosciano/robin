@@ -68,11 +68,12 @@ RECEPTIONIST   ...Fine. I'll cancel the subscription and refund the last
 Robin calls you back: **cancelled, last month refunded, confirmation
 `24HF-4471`.** The whole thing is recorded and sitting in your dashboard.
 
-> <sub><strong>Honest by design:</strong> the receptionist is a
-> disclosed AI simulation and the real company is never dialed. The
-> pipeline is real — real web research, real inbound discovery, real
-> outbound call. Both sides of the demo are scripted and stated to be.
-> A faked demo is disqualifying; this isn't one.</sub>
+> <sub><strong>Honest by design:</strong> the receptionist is a briefed
+> teammate openly role-playing the 24 Hour Gym front desk — disclosed on
+> screen — and the real company is never dialed. The pipeline is real —
+> real web research, real inbound discovery, real outbound call. Both
+> sides of the demo are scripted and stated to be. A faked demo is
+> disqualifying; this isn't one.</sub>
 
 ---
 
@@ -137,15 +138,18 @@ cp .env.example .env          # add your keys — .env is gitignored, never comm
 
 docker compose build robin    # python:3.12-slim + the full stack
 
-docker compose run --rm robin pytest -q          # tests
+docker compose run --rm robin pytest -q          # tests (compose default)
 docker compose run --rm robin ruff check src tests
-docker compose up robin                          # webhook server on :8000
+# Start the webhook server: see docs/RUNBOOK.md  (host :8080 → container :8000)
 ```
 
-**Keys you'll need in `.env`:** `AGENTPHONE_API_KEY`,
-`AGENTPHONE_WEBHOOK_SECRET`, `ANTHROPIC_API_KEY`, `BROWSER_USE_API_KEY`,
-`CALLBACK_NUMBER`. Secrets are validated at startup — Robin fails fast,
-never mid-demo, never on stage.
+**Required in `.env`** (validated at startup — Robin fails fast, never
+mid-demo): the secrets `ANTHROPIC_API_KEY`, `AGENTPHONE_API_KEY`,
+`AGENTPHONE_WEBHOOK_SECRET`, `BROWSER_USE_API_KEY`; the provisioned
+`ROBIN_AGENT_ID` + `FROM_NUMBER_ID` (printed by
+`./scripts/provision.sh`); `RECEPTIONIST_TO_NUMBER`; and
+`PUBLIC_BASE_URL` (the tunnel URL). Full annotated list in
+`.env.example` — source of truth is `src/robin/config.py`.
 
 ---
 
