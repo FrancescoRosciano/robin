@@ -20,39 +20,26 @@ only in the gitignored `.env`; none are reproduced here.
   rule). One stray older cloudflared on :8000 + one unrelated on :8080
   were left untouched.
 
-## Receptionist — FALLBACK INVOKED (Plan 05 Task 4, pre-decided)
+## Receptionist — a human teammate on a phone (THE design)
 
-Calling the hosted receptionist number connected but produced **dead
-air** — no greeting, no response to speech. Root cause (best read):
-AgentPhone agents are webhook-mode OR hosted-mode; the docs do **not**
-document webhook scope or how to force hosted mode. A single globally
-registered webhook + our webhook server not yet running (Plan 06) most
-plausibly routed the receptionist into webhook mode → silence.
+**The receptionist is a human teammate on a real phone. That is the
+demo architecture for this leg — not a fallback, not a contingency.**
+Robin dials `RECEPTIONIST_TO_NUMBER` (mirrored from `TEAMMATE_NUMBER`
+in the gitignored `.env`); the teammate answers and negotiates from
+`docs/2026-05-17-receptionist-cheat-card.md` (derived from
+`src/robin/fixtures/prompts/receptionist.txt`). Robin's pipeline is
+unchanged — it just dials a number a person answers.
 
-Per the plan's pre-decided gate ("don't rabbit-hole undocumented
-hosted-mode under deadline"), a local fallback was invoked. Robin's
-pipeline is unchanged either way; it still "dials the number."
-
-**DECISION (2026-05-17, FINAL — chosen & wired):** the receptionist is
-played by a **human teammate on a real phone**, reading the cheat card
-derived from `src/robin/fixtures/prompts/receptionist.txt`. This is
-Plan 05's other pre-decided fallback ("set RECEPTIONIST_TO_NUMBER to a
-teammate's phone"). `RECEPTIONIST_TO_NUMBER` in `.env` is mirrored from
-`TEAMMATE_NUMBER`. Robin's pipeline is unchanged — it just dials a
-number a person answers. This removes the OpenAI-Realtime telephony
-bridge (and its undocumented AgentPhone audio-contract dependency) from
-the critical path entirely.
-
-Fallback tiers, in order:
-1. **Human teammate on a phone** (PRIMARY — chosen, wired). Number in
-   `.env` (`RECEPTIONIST_TO_NUMBER` = `TEAMMATE_NUMBER`). Script:
-   `docs/2026-05-17-receptionist-cheat-card.md`.
-2. **OpenAI Realtime receptionist** (optional, SUPERSEDED as primary) —
-   see `docs/decisions/2026-05-17-receptionist-openai-realtime.md`;
-   kept on file, implementation not pursued unless the teammate falls
-   through and a dynamic auto-receptionist is wanted later.
-3. **Local TTS soundboard** (last-ditch, zero-dependency) —
-   `scripts/receptionist_tts.sh` (macOS `say`).
+Why it is NOT an AgentPhone agent (history, not a tier list): the
+hosted AgentPhone receptionist agent connected but produced dead air —
+AgentPhone agents are webhook- or hosted-mode and the docs do not
+document webhook scope or how to force hosted mode; a global webhook
+with no running server most plausibly routed it to a dead webhook. That
+path was **abandoned**. The OpenAI-Realtime idea
+(`docs/decisions/2026-05-17-receptionist-openai-realtime.md`) is
+**superseded and parked**. `scripts/receptionist_tts.sh` exists ONLY as
+break-glass if the teammate is physically unavailable at showtime — an
+emergency stub, not a designed alternative.
 
 ## Still OPEN (not Plan 05-blocking; carried forward)
 
