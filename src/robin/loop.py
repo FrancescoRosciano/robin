@@ -45,8 +45,13 @@ async def run_turn(transcript: str, history: list, *, system: str, llm,
         results = []
         for tu in tool_uses:
             impl = tool_impls.get(tu["name"])
-            out = (await impl(**tu["input"])) if impl else {
-                "error": f"unknown tool {tu['name']}"}
+            if impl is None:
+                out = {"error": f"unknown tool {tu['name']}"}
+            else:
+                try:
+                    out = await impl(**tu["input"])
+                except Exception as exc:  # noqa: BLE001 - tools are an untrusted, fragile boundary; a tool failure must not kill the call turn
+                    out = {"error": f"tool {tu['name']} failed: {exc!s}"[:200]}
             results.append({"type": "tool_result", "tool_use_id": tu["id"],
                             "content": str(out)})
         messages.append({"role": "user", "content": results})

@@ -51,7 +51,7 @@ TOOL_SCHEMAS = [
                 "summary": {"type": "string"},
                 "confirmation": {"type": ["string", "null"]},
             },
-            "required": ["channel", "summary"],
+            "required": ["channel", "summary", "confirmation"],
         },
     },
 ]

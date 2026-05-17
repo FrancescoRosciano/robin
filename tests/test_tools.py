@@ -16,6 +16,17 @@ def test_tool_schemas_are_the_three_named_tools():
     }
 
 
+def test_tool_schemas_input_shapes():
+    schema_by_name = {t["name"]: t["input_schema"] for t in TOOL_SCHEMAS}
+    assert schema_by_name["research_cancellation_law"]["required"] == ["jurisdiction"]
+    assert schema_by_name["place_negotiation_call"]["required"] == [
+        "phone", "member_name", "citations"
+    ]
+    assert schema_by_name["deliver_result"]["required"] == [
+        "channel", "summary", "confirmation"
+    ]
+
+
 async def test_research_parses_browser_output_ok():
     fb = FakeBrowser(LAW_OUTPUT)
     res = await research_cancellation_law(
@@ -24,6 +35,7 @@ async def test_research_parses_browser_output_ok():
     assert res["status"] == "OK"
     assert res["citations"][0]["citation"].startswith("FTC")
     assert "law.html" in fb.calls[0]
+    assert "source" not in res
 
 
 async def test_research_timeout_returns_failed_not_raise():

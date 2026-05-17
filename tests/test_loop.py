@@ -80,6 +80,22 @@ async def test_history_is_included_in_messages():
     assert captured["messages"][-1]["content"] == "24 Hour Gym"
 
 
+async def test_tool_exception_does_not_crash_turn():
+    async def boom(**kw):
+        raise RuntimeError("kaboom")
+
+    llm = FakeLLM([
+        _Msg([_tool_use("t1", "research_cancellation_law",
+                        {"jurisdiction": "US-CA"})], "tool_use"),
+        _Msg(_text(["Recovered and finalized."]), "end_turn"),
+    ])
+    out = [c async for c in run_turn(
+        "cancel my gym", [], system="SYS", llm=llm,
+        tool_impls={"research_cancellation_law": boom})]
+    assert out[-1]["text"] == "Recovered and finalized."
+    assert "interim" not in out[-1]
+
+
 async def test_keepalive_interim_emitted_before_tool_batch():
     async def slow_tool(**kw):
         return {"status": "OK"}
