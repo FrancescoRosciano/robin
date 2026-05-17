@@ -5,9 +5,12 @@ Implements the Coordination Model. Tool signatures are frozen in the 00
 doc and replace the Plan 03 stub unchanged.
 """
 import asyncio
+import logging
 
 from robin.classifier import classify_transcript
 from robin.models import Outcome, OutcomeStatus
+
+_log = logging.getLogger(__name__)
 
 
 class CallRegistry:
@@ -52,6 +55,13 @@ def make_place_negotiation_call(*, client, registry: CallRegistry,
     (receptionist_to_number) — never the real company.
     """
 
+    _tasks: set[asyncio.Task] = set()
+
+    def _on_done(task: asyncio.Task) -> None:
+        _tasks.discard(task)
+        if not task.cancelled() and task.exception() is not None:
+            _log.error("capture task failed: %r", task.exception())
+
     async def place_negotiation_call(phone: str, member_name: str,
                                      citations: list[dict]) -> dict:
         call_id = await client.place_call(
@@ -59,8 +69,10 @@ def make_place_negotiation_call(*, client, registry: CallRegistry,
             initial_greeting=f"Hi, I'm calling on behalf of {member_name}.",
             system_prompt=outbound_system_prompt,
             from_number_id=from_number_id)
-        asyncio.create_task(
+        task = asyncio.create_task(
             capture_and_classify(call_id, client=client, registry=registry))
+        _tasks.add(task)
+        task.add_done_callback(_on_done)
         return {"call_id": call_id}
 
     return place_negotiation_call
