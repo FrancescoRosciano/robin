@@ -42,6 +42,86 @@ Never edit `pyproject.toml` concurrently with Plan 01.
 
 ---
 
+### Task 0: API contract lock (Wave-1 GATE — do not skip)
+
+**This is a hard gate.** It BLOCKS every later task in this plan
+(Tasks 1–8, and most critically Tasks 3, 6, 7, 8) until it is complete.
+Do not write `signature.py`, `tools.py`, `loop.py`, or `app.py` until
+the 5 facts below are confirmed against the **live** AgentPhone source.
+
+**Why:** Plan 03 ships sensible *defaults* — HMAC = SHA-256 over the raw
+body with header `X-AgentPhone-Signature` (Task 3); webhook body
+`data.transcript` + `recentHistory:[{"direction","content"}]` (Task 8);
+SSE events `connected`/`turn`/`ended` (Plan 04 contract). But
+`agentphone/agentphone-notes.md` explicitly marks **HMAC signature
+verification** and **inbound caller DTMF** as `OPEN — confirm before
+relying on it`. Building the live demo on an unverified wire contract is
+the single highest-likelihood silent failure: every webhook rejected as
+a bad signature, or the transcript parsed from the wrong field — both
+look like "Robin is mute on stage".
+
+**Files:**
+- Read/confirm only (no `src/`/`tests/` code in this task):
+  `agentphone/agentphone-notes.md` and the live sources it cites.
+
+- [ ] **Step 1: Complete the 5-fact API extraction (the Plan 00 GATE)**
+
+This is the SAME extraction tracked in the GATE block of
+`docs/superpowers/plans/2026-05-17-robin-00-execution-sequence.md`.
+Verify each fact against the live AgentPhone docs / Discord
+(`https://tinyurl.com/ycagentphone`) and the Moss `moss_agentphone.py`
+reference — NOT against this plan's defaults:
+
+  1. **HMAC scheme** — exact algorithm (SHA-256?), exact request header
+     name (`X-AgentPhone-Signature`?), any value prefix (`sha256=`?),
+     and exactly which bytes are signed (raw body only? body +
+     timestamp?). Sources: Moss `moss_agentphone.py` signature-verify
+     code + `https://docs.agentphone.ai/welcome/llms-full.txt`.
+  2. **Inbound webhook body shape** — confirm spoken text is at
+     `data.transcript` and history is
+     `recentHistory:[{"direction":"inbound|outbound","content":"..."}]`
+     (exact field names and `direction` literal values).
+  3. **Inbound caller DTMF** — whether a caller's own `1`/`2` keypress
+     reaches the webhook at all, and under what field. If not: the
+     voice-keyword fallback ("say one / say two", Plan 02 wording)
+     stands — no code change, just record the confirmed decision.
+  4. **SSE transcript event names** — confirm `connected` → `turn`
+     (`role`:"user"|"agent", `content`, `createdAt`) → `ended`
+     (consumed by Plan 04; locked here so 03/04 cannot drift).
+  5. **Outbound + recording shapes** — `POST /v1/calls`
+     (`agentId`/`toNumber`/`initialGreeting`/`systemPrompt`/`fromNumberId`)
+     and `GET /v1/calls/{id}` → `recordingUrl` (locked for Plan 04).
+
+- [ ] **Step 2: Record findings + the SINGLE change-points**
+
+Resolve the `OPEN` section of `agentphone/agentphone-notes.md` with the
+confirmed facts and a source link for each. This task is a **gate +
+pointer, not a reimplementation** — if reality differs from the
+defaults, the change is surgical and localized to exactly one place:
+
+  - **HMAC scheme differs** → change *only* `src/robin/signature.py`
+    (the algorithm constant + the header-prefix strip in `verify_hmac`).
+    No other file touches the signing math.
+  - **Webhook body shape differs** → change *only* the two parse lines
+    in `src/robin/app.py` (`transcript = ...`, `history = ...`) and the
+    matching field mapping in the AgentPhone client (Plan 04). The loop
+    contract `run_turn(transcript, history, ...)` is unaffected.
+  - **Inbound DTMF unsupported** → no code change; the voice-keyword
+    flow already stands. Just record the decision.
+
+- [ ] **Step 3: Gate check — confirm before proceeding**
+
+Do NOT start Task 1 (and therefore Tasks 3/6/7/8) until all 5 facts are
+recorded in `agentphone/agentphone-notes.md` with a source link each,
+and the notes state explicitly whether each default held or changed.
+Only then is the gate released and Tasks 1–8 may proceed.
+
+(No commit for this task — it edits `agentphone/agentphone-notes.md`,
+which is outside Plan 03's `src/`/`tests/` ownership surface. Record the
+findings there, release the gate, and continue.)
+
+---
+
 ### Task 1: Add runtime dependencies
 
 **Files:**
@@ -503,7 +583,36 @@ async def test_research_timeout_returns_failed_not_raise():
     )
     assert res["status"] == "FAILED"
     assert res["citations"] == []
+
+
+async def test_research_falls_back_to_local_fixture(tmp_path):
+    law = tmp_path / "law.html"
+    law.write_text('<h2 class="citation">FTC X</h2>'
+                   '<p class="operative-quote">Be simple.</p>'
+                   '<p class="source">http://h</p>')
+    fb = FakeBrowser("", raise_exc=RuntimeError("BU down"))
+    res = await research_cancellation_law(
+        "US-CA", browser=fb, law_url="http://h/law.html",
+        law_html_path=str(law))
+    assert res["status"] == "OK"
+    assert res["citations"][0]["citation"] == "FTC X"
+    assert res.get("source") == "local-fixture-fallback"
 ```
+
+> **INTEGRITY note (read before implementing the fallback).** The
+> mandatory recorded backup run (Plan 06, Task 7) MUST be captured on the
+> **real Browser Use path** — the local fixture is a *live-stage safety
+> net only*, never the path that produces the submission video. This is
+> the same live-vs-recorded integrity bright line as the design doc:
+> the pipeline genuinely runs for the recording; the fallback exists
+> solely so a flaky network on stage cannot leave Robin with zero
+> citations mid-negotiation. The fallback parses the **identical
+> pre-vetted text** from the self-hosted `src/robin/fixtures/law.html`,
+> so the cited statutes are unchanged whichever path serves them.
+> Cross-reference (do NOT implement here): the composition root in
+> `src/robin/main.py` (Plan 06) must pass
+> `law_html_path="src/robin/fixtures/law.html"` when wiring the real
+> `research_cancellation_law`.
 
 - [ ] **Step 3: Run test to verify it fails**
 
@@ -515,6 +624,8 @@ Expected: FAIL — `ModuleNotFoundError: No module named 'robin.tools'`.
 ```python
 """Anthropic tool schemas + the Browser Use research tool + dispatcher."""
 import asyncio
+import os
+import re
 
 RESEARCH_TIMEOUT_S = 60
 
@@ -577,8 +688,21 @@ def _parse_law(output: str) -> list[dict]:
     return cites
 
 
+def _parse_law_html(html: str) -> list[dict]:
+    cites = re.findall(r'class="citation"[^>]*>(.*?)<', html, re.S)
+    quotes = re.findall(r'class="operative-quote"[^>]*>(.*?)<', html, re.S)
+    srcs = re.findall(r'class="source"[^>]*>(.*?)<', html, re.S)
+    out = []
+    for i, c in enumerate(cites):
+        out.append({"citation": c.strip(),
+                    "operative_quote": quotes[i].strip() if i < len(quotes) else "",
+                    "source_url": srcs[i].strip() if i < len(srcs) else ""})
+    return out
+
+
 async def research_cancellation_law(jurisdiction: str, *, browser,
-                                    law_url: str) -> dict:
+                                    law_url: str,
+                                    law_html_path: str | None = None) -> dict:
     task = (
         f"Go to {law_url}. It lists cancellation-law citations for "
         f"jurisdiction {jurisdiction}. For each citation block return one "
@@ -589,21 +713,36 @@ async def research_cancellation_law(jurisdiction: str, *, browser,
         result = await asyncio.wait_for(browser.run(task),
                                         timeout=RESEARCH_TIMEOUT_S)
     except (asyncio.TimeoutError, TimeoutError, Exception) as exc:  # noqa: BLE001
+        # Browser Use failed/timed out. Deterministic safety net: parse the
+        # SELF-HOSTED, pre-vetted fixture (identical statute text → integrity
+        # preserved). Live-stage net only — never the recorded-backup path.
+        if law_html_path and os.path.exists(law_html_path):
+            with open(law_html_path, encoding="utf-8") as fh:
+                cites = _parse_law_html(fh.read())
+            if cites:
+                return {"citations": cites, "status": "OK",
+                        "source": "local-fixture-fallback"}
         return {"citations": [], "status": "FAILED", "error": str(exc)[:200]}
     cites = _parse_law(getattr(result, "output", "") or "")
     return {"citations": cites, "status": "OK" if cites else "FAILED"}
 ```
 
+> The new fixture-fallback branch is only reachable on a Browser Use
+> exception/timeout. The OK path is unchanged: a successful real run
+> still returns `status:"OK"` with **no** `source` key, so the recorded
+> backup is unambiguously distinguishable from a fallback run.
+
 - [ ] **Step 5: Run test to verify it passes**
 
 Run: `python3 -m pytest tests/test_tools.py -q`
-Expected: PASS (3 passed).
+Expected: PASS (4 passed) — including
+`test_research_falls_back_to_local_fixture`.
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add src/robin/tools.py tests/fakes.py tests/test_tools.py
-git commit -m "feat: tool schemas + Browser Use research tool (timeout-safe)"
+git commit -m "feat: tool schemas + Browser Use research (timeout-safe + local fallback)"
 ```
 
 ---
@@ -613,6 +752,21 @@ git commit -m "feat: tool schemas + Browser Use research tool (timeout-safe)"
 **Files:**
 - Create: `src/robin/loop.py`
 - Test: `tests/test_loop.py`
+
+> **Two demo-critical behaviors live in this loop:**
+> 1. **Conversation memory.** `run_turn` must build `messages` from
+>    AgentPhone's `recentHistory` (`inbound`→user, `outbound`→assistant)
+>    *before* the current transcript, or the multi-turn discovery
+>    dialogue (literally half the Stage Runsheet) has no memory.
+> 2. **Keepalive vs webhook timeout.** AgentPhone keeps the turn open as
+>    long as interim NDJSON lines keep flowing; the default turn timeout
+>    is 30s but the Browser Use research tool can take ~60s. The loop
+>    therefore emits a keepalive interim immediately before each
+>    tool-execution batch (in addition to the initial ack). Plan 05 also
+>    raises the registered webhook `timeout` to 120s (the per-webhook
+>    `timeout` field, 5–120s — see `agentphone/agentphone-notes.md`);
+>    that is a Plan 05 provisioning change, cross-referenced here, **not
+>    implemented in this plan**.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -686,6 +840,47 @@ async def test_loop_caps_at_six_tool_turns():
     # 6 tool turns max, then a forced final chunk
     assert out[-1].get("interim") is not True
     assert len(llm.calls) <= 6
+
+
+async def test_history_is_included_in_messages():
+    captured = {}
+
+    class _LLM:
+        async def create(self, *, system, messages, tools):
+            captured["messages"] = messages
+
+            class _M:
+                content = [{"type": "text", "text": "24 Hour Fitness, got it."}]
+                stop_reason = "end_turn"
+            return _M()
+
+    hist = [{"direction": "inbound", "content": "cancel my gym"},
+            {"direction": "outbound", "content": "Which gym?"}]
+    out = [c async for c in run_turn("24 Hour Fitness", hist, system="S",
+                                     llm=_LLM(), tool_impls={})]
+    roles = [m["role"] for m in captured["messages"]]
+    assert roles == ["user", "assistant", "user"]
+    assert captured["messages"][-1]["content"] == "24 Hour Fitness"
+
+
+async def test_keepalive_interim_emitted_before_tool_batch():
+    async def slow_tool(**kw):
+        return {"status": "OK"}
+
+    llm = FakeLLM([
+        _Msg([_tool_use("t1", "research_cancellation_law",
+                        {"jurisdiction": "US-CA"})], "tool_use"),
+        _Msg(_text(["Done."]), "end_turn"),
+    ])
+    out = [c async for c in run_turn(
+        "cancel my gym", [], system="SYS", llm=llm,
+        tool_impls={"research_cancellation_law": slow_tool})]
+    interims = [c for c in out if c.get("interim") is True]
+    # initial ack + the pre-tool keepalive = at least TWO interims
+    # before the final non-interim chunk.
+    assert len(interims) >= 2
+    assert out[-1].get("interim") is not True
+    assert out[-1]["text"] == "Done."
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -703,6 +898,7 @@ from robin.tools import TOOL_SCHEMAS
 
 MAX_TOOL_TURNS = 6
 _INTERIM_ACK = "Let me handle that for you."
+_KEEPALIVE = "Still working on that — almost there."
 _FORCED_FINAL = "Give me one moment — I'm still working on this."
 
 
@@ -722,7 +918,17 @@ async def run_turn(transcript: str, history: list, *, system: str, llm,
     """Yield NDJSON-ready dicts: one interim ack, then the final text."""
     yield {"text": _INTERIM_ACK, "interim": True}
 
-    messages = [{"role": "user", "content": transcript}]
+    # Build prior-turn memory from AgentPhone's recentHistory so multi-turn
+    # discovery ("which gym?" -> "24 Hour Fitness" -> "call it?" -> "yes")
+    # actually remembers. inbound = caller (user); outbound = Robin (asst).
+    messages = []
+    for h in history:
+        role = "user" if h.get("direction") == "inbound" else "assistant"
+        content = h.get("content", "")
+        if content:
+            messages.append({"role": role, "content": content})
+    messages.append({"role": "user", "content": transcript})
+
     for _ in range(MAX_TOOL_TURNS):
         msg = await llm.create(system=system, messages=messages,
                                tools=TOOL_SCHEMAS)
@@ -731,6 +937,11 @@ async def run_turn(transcript: str, history: list, *, system: str, llm,
             yield {"text": _content_text(msg.content) or _FORCED_FINAL}
             return
         messages.append({"role": "assistant", "content": msg.content})
+        # Keepalive: a tool (Browser Use research) may take up to ~60s.
+        # Emitting an interim line right before the tool batch keeps the
+        # AgentPhone webhook turn open (interim NDJSON resets the timer);
+        # without it the default 30s turn times out with silence on stage.
+        yield {"text": _KEEPALIVE, "interim": True}
         results = []
         for tu in tool_uses:
             impl = tool_impls.get(tu["name"])
@@ -746,13 +957,15 @@ async def run_turn(transcript: str, history: list, *, system: str, llm,
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `python3 -m pytest tests/test_loop.py -q`
-Expected: PASS (3 passed).
+Expected: PASS (5 passed) — including
+`test_history_is_included_in_messages` and
+`test_keepalive_interim_emitted_before_tool_batch`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add src/robin/loop.py tests/test_loop.py
-git commit -m "feat: Claude tool-call loop (interim->tools->final, 6-cap)"
+git commit -m "feat: Claude tool-call loop (history memory + keepalive, 6-cap)"
 ```
 
 ---
@@ -914,16 +1127,41 @@ git commit -m "feat: FastAPI webhook (HMAC->loop->NDJSON) + law fixture"
 
 ## Self-Review
 
-- **Spec coverage:** HMAC over raw bytes before parse (security rule +
-  SPEC); NDJSON interim→final (agentphone-notes); Claude loop ≤6 tools
-  (design "Tool Schemas"); 3 tool schemas; `/fixture/law.html` served
-  (design); fail-fast secret guard (security rule). Covered.
+- **Spec coverage:** Task 0 **API-contract gate** locks the 5 wire facts
+  (HMAC scheme/header, webhook body shape, inbound DTMF, SSE events,
+  outbound/recording) against the live AgentPhone source before any
+  later task — it hard-blocks Tasks 1–8 and resolves the `OPEN` items in
+  `agentphone/agentphone-notes.md`. HMAC over raw bytes before parse
+  (security rule + SPEC); NDJSON interim→final (agentphone-notes);
+  Claude loop ≤6 tools (design "Tool Schemas"); 3 tool schemas;
+  `/fixture/law.html` served (design); fail-fast secret guard. **Loop
+  memory:** `run_turn` now builds `messages` from `recentHistory`
+  (`inbound`→user / `outbound`→assistant) before the transcript, so
+  multi-turn discovery (half the Stage Runsheet) remembers — covered by
+  `test_history_is_included_in_messages`. **Keepalive:** a keepalive
+  interim is emitted before each tool-execution batch (initial ack +
+  pre-tool keepalive ⇒ ≥2 interims) so the ~60s Browser Use research
+  cannot time out the 30s webhook turn; Plan 05 raises the webhook
+  `timeout` to 120s (cross-ref, not implemented here) — covered by
+  `test_keepalive_interim_emitted_before_tool_batch`. **BU resilience:**
+  `research_cancellation_law` falls back to the self-hosted pre-vetted
+  `law.html` on any Browser Use error (identical statute text →
+  integrity preserved; recorded backup must use the real path) —
+  covered by `test_research_falls_back_to_local_fixture`. Covered.
 - **Placeholder scan:** every step has full code; the only stub is
   `outbound.py`, intentionally and explicitly handed to Plan 04 with the
-  frozen signature.
-- **Type consistency:** `run_turn(..., llm, tool_impls)` matches
-  `app.build_app`; tool names in `TOOL_SCHEMAS` match the dispatcher and
-  the 00 contract; `FakeAgentPhoneClient` mirrors Plan 04's
-  `AgentPhoneClient` + `TranscriptTurn`. The real Anthropic adapter is
-  wired in Plan 06 (Task: composition) — `llm.create(system, messages,
-  tools)` is the seam.
+  frozen signature. Task 0 is a gate/pointer (no `src/` code) by design.
+- **Type consistency:** `run_turn(transcript, history, *, system, llm,
+  tool_impls)` matches `app.build_app`'s call site; the keepalive/history
+  changes add no new params. `research_cancellation_law(jurisdiction:
+  str, *, browser, law_url: str, law_html_path: str | None = None)` —
+  the added `law_html_path` is keyword-only and defaulted, so existing
+  callers (and the frozen 00 tool contract
+  `research_cancellation_law(jurisdiction) -> dict`) are unaffected; the
+  Plan 06 composition root passes
+  `law_html_path="src/robin/fixtures/law.html"` (cross-ref). Tool names
+  in `TOOL_SCHEMAS` match the dispatcher and the 00 contract;
+  `FakeAgentPhoneClient` mirrors Plan 04's `AgentPhoneClient` +
+  `TranscriptTurn`. `models.py`, `AgentPhoneClient`, `TranscriptTurn`,
+  and the three tool names are unchanged. The real Anthropic adapter is
+  wired in Plan 06 — `llm.create(system, messages, tools)` is the seam.

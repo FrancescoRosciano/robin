@@ -28,6 +28,7 @@ doc `~/.gstack/projects/robin/francescorosciano-unknown-design-20260517-112530.m
 | 04 | Outbound + Capture + Callback | `agentphone_client.py`, `outbound.py` (asyncio SSE consumer → classify → callback), recording URL | No (fakes) | **subagent-driven-development** | sonnet |
 | 05 | Provisioning & Tunnel | `scripts/setup_agentphone.py`, 2nd (receptionist) agent, cloudflared tunnel | **Yes** (AGENTPHONE_API_KEY) — *code* is key-free, *run* is gated | **executing-plans** (live, operator judgment) | sonnet |
 | 06 | Integration, Rehearsal, Submission | wired `.env`, smoke, manual win gate, recorded backup, ×3 rehearsal, public repo + Google form | **Yes** (both keys + tunnel) | **executing-plans** (live, human-in-loop) | sonnet |
+| 07 | Stage Presentation & AV | live-transcript projector page (`TurnBroadcaster` + `/stage` SSE page), "AI simulation" disclosure slide, AV runbook, integrated stage rehearsal | No (projector code) / Yes (live staging) | **executing-plans** | sonnet |
 
 Why two strategies:
 - **subagent-driven-development** — well-specified, TDD-able, decomposable
@@ -36,8 +37,9 @@ Why two strategies:
 - **executing-plans** — inline batch execution with checkpoints where the
   operator must watch and exercise judgment: high-stakes legal
   verification (02), live key-gated provisioning with pre-decided
-  fallbacks (05), and the operational closeout / live rehearsal /
-  human-only git push + submission (06).
+  fallbacks (05), the operational closeout / live rehearsal / human-only
+  git push + submission (06), and stage AV + rehearsal (07's projector
+  code is key-free; its staging half is live + operator-present).
 
 ---
 
@@ -45,11 +47,45 @@ Why two strategies:
 
 ```
 GATE (start NOW, runs alongside everything — does NOT block Wave 1/2 code):
+  G0  git init — Robin is not yet a git repository. Every plan's commits
+      depend on it (the first commit is Plan 01 Task 1). Run:
+        git rev-parse --git-dir >/dev/null 2>&1 || git init
+      in the project root before Wave 1 work begins.
   G1  Obtain AGENTPHONE_API_KEY      (human — agentphone.ai / Discord https://tinyurl.com/ycagentphone)
   G2  Obtain BROWSER_USE_API_KEY     (human — cloud.browser-use.com → API keys)
-  G3  Bring up cloudflared HTTPS tunnel; note PUBLIC_BASE_URL (do NOT restart it later — ~12s cooldown)
+  G3  Obtain ANTHROPIC_API_KEY       (human — console.anthropic.com → API keys;
+      the Claude tool-call loop requires it; must appear in .env + config guard)
+  G4  Bring up cloudflared HTTPS tunnel; note PUBLIC_BASE_URL (do NOT restart it later — ~12s cooldown)
+  G5  Enable / verify the AgentPhone recording add-on (agentphone.ai dashboard
+      or via support / Discord). Without it, `GET /v1/calls/{id}` returns no
+      `recordingUrl` and the "recording visible in the dashboard" acceptance
+      criterion fails.
   DAY_PLAN rule: if keys not in hand by early afternoon, Waves 1–2 still
   complete against fakes; keys only gate Plan 05 *run* + Plan 06 integration.
+
+  ── API CONTRACT LOCK (gate for Plans 03 & 05 — do NOT skip; 15 min) ────────
+  Before trusting Plans 03 and 05 implementations, verify these 5 facts
+  against the live AgentPhone docs / Discord. All should be answerable from
+  `agentphone/agentphone-notes.md`; if any is missing or marked "OPEN",
+  ask in the AgentPhone Discord NOW (not at 4 PM):
+
+  1. Inbound webhook body shape + exact NDJSON response schema:
+     confirm `{"text":...,"interim":true}` → `{"text":...}` is correct,
+     and the field names for `hangup`/`action`/`digits`.
+  2. HMAC signing — exact header name, signing algorithm, and the exact bytes
+     signed (raw body? normalised JSON? with/without a timestamp?).
+  3. Create-2nd-agent + bind-number exact API call shapes
+     (`POST /v1/agents`, `POST /v1/numbers`, `POST /v1/agents/{id}/numbers`).
+  4. Outbound `POST /v1/calls` exact field names
+     (`agentId`, `toNumber`, `fromNumberId`, `initialGreeting`, `systemPrompt`).
+  5. Outbound transcript SSE endpoint + event names (`connected`, `turn`,
+     `ended`) + the recording field on `GET /v1/calls/{id}` (`recordingUrl`).
+
+  If reality differs from `agentphone-notes.md`, change points are isolated:
+  - HMAC algorithm/header → only `src/robin/signature.py`
+  - Webhook body field names → only `src/robin/app.py` parse + client mapping
+  - Provisioning field names → only `scripts/setup_agentphone.py`
+  ─────────────────────────────────────────────────────────────────────────────
 
 WAVE 1  — fully parallel, zero keys, zero cross-plan deps:
   ├─ Plan 01  Pure Logic Core            (subagent-driven)
@@ -63,12 +99,19 @@ WAVE 1  — fully parallel, zero keys, zero cross-plan deps:
 WAVE 2  — parallel, starts the moment Plan 01 interfaces are committed
           and Plan 02 prompt templates exist (still no keys needed):
   ├─ Plan 03  Webhook Server + Tool Loop (subagent-driven; imports Plan 01, serves Plan 02 law.html, loads Plan 02 prompts)
-  └─ Plan 04  Outbound + Capture + Callback (subagent-driven; imports Plan 01 classifier; both 03 & 04 code against the FROZEN AgentPhone client + tool contracts below)
+  ├─ Plan 04  Outbound + Capture + Callback (subagent-driven; imports Plan 01 classifier; both 03 & 04 code against the FROZEN AgentPhone client + tool contracts below)
+  └─ Plan 07  *projector code only*     (executing-plans; build TurnBroadcaster in
+              src/robin/broadcast.py + /stage SSE page; depends only on Plan 04's
+              frozen stream_transcript/TranscriptTurn interface + canned SSE fixture;
+              runs fully parallel — no key dependency)
 
   03 and 04 do NOT block each other: the AgentPhone client interface and
   the 3-tool contract are frozen below. 03 owns the loop + research tool +
   thin import of 04's two tool callables; 04 owns the client + outbound +
   callback. They integrate when both land.
+  Plan 07's projector code depends only on Plan 04's frozen TranscriptTurn
+  type + the canned SSE fixture already in tests/fakes.py — it does NOT need
+  the full outbound pipeline to be running.
 
 WAVE 3  — sequential, needs keys + Wave 1/2 code:
   1. Plan 05 RUN  (executing-plans, live): provision Robin agent + number +
@@ -80,12 +123,19 @@ WAVE 3  — sequential, needs keys + Wave 1/2 code:
      recorded backup immediately** → rehearse runsheet ×3 vs clock →
      6 PM feature freeze → README/secrets scan → human makes repo public,
      pushes, submits Google form before 8 PM.
+  3. Plan 07 staging/AV/disclosure + integrated rehearsal ×3 — interleaved
+     with / immediately after Plan 06. Plan 07 Task 6 (integrated stage
+     rehearsal with projector, PA, disclosure slide) supersedes/extends Plan
+     06's bare "rehearse ×3" task (Plan 06 Task 8). The combined rehearsal is
+     the single gate before submission. Plan 07 also wires the /stage route +
+     on_turn=broadcaster.publish hook into src/robin/main.py at this point.
 ```
 
 **One-line scheduling answer:** 01 ‖ 02 ‖ 05-authoring run in parallel
-now; 03 ‖ 04 in parallel as soon as 01's `models.py` is committed and
-02's prompt files exist; 05-run then 06 strictly sequential at the end
-once the two keys + tunnel are in hand. The only true serialization is
+now; 03 ‖ 04 ‖ 07-projector-code in parallel as soon as 01's `models.py`
+is committed and 02's prompt files exist; 05-run → 06 → 07-staging
+strictly sequential at the end once the three keys + tunnel + recording
+add-on are in hand (G0–G5 gates resolved). The only true serialization is
 Wave 3 (it needs live telephony + the human for push/submit).
 
 ---
@@ -96,6 +146,15 @@ Plan 01 **owns and must commit first**: `pyproject.toml` (initial),
 `src/robin/__init__.py`, and `src/robin/models.py`. Plan 03 *appends* its
 deps to `pyproject.toml` only after Plan 01 is merged (no concurrent edit
 of `pyproject.toml`).
+
+> **Additive note — Plan 04 `capture_and_classify` (Plan 04 Task 5):**
+> Plan 04's internal `capture_and_classify` function gained an **optional
+> keyword-only `on_turn=None` callback** (`Callable[[TranscriptTurn], None]
+> | None = None`). This is used by Plan 07's `TurnBroadcaster.publish`
+> to broadcast each turn to the `/stage` SSE page. This change is
+> **additive and backward-compatible** — callers that omit `on_turn` see
+> no change. It is explicitly **NOT part of the frozen Plan 00 contract**
+> (callers outside Plan 07 must never depend on it).
 
 ### `src/robin/models.py` (Plan 01 — imported by 03, 04)
 
@@ -246,9 +305,13 @@ these signatures**; Plan 04 replaces the stub. No signature drift.
 | Context pack guard rejects unfilled placeholders | 01 |
 | Manual receptionist "win it by hand" gate | 06 (gate before trusting Robin) |
 | Recorded backup run (Google-form video + safety net) | 06 |
-| Rehearse live runsheet ×3 vs clock | 06 |
+| Rehearse live runsheet ×3 vs clock | 06 (bare) + 07 (Task 6 integrated, supersedes) |
 | Public repo + Google form, human pushes (agent denied) | 06 |
 | DAY_PLAN checkpoints (no-key, DTMF, 6 PM freeze) | 06 (pre-decided gates) |
+| The room hears / sees the live negotiation | 07 (`/stage` SSE projector page) |
+| On-screen "AI simulation" disclosure | 07 (disclosure slide) |
+| Stage AV + the <1-min-pitch vs multi-minute-run choreography | 07 (AV runbook) |
+| Fill the multi-minute dead air during the outbound call | 07 (live `/stage` projector) |
 
 No requirement is unmapped.
 
@@ -266,6 +329,31 @@ No requirement is unmapped.
 - **2nd AgentPhone agent provisioning stalls > 30 min (≈12:30 PM
   checkpoint)** → Plan 05 fallback: a teammate phone / 6-line TTS plays
   the receptionist at `RECEPTIONIST_TO_NUMBER`. Same demo story.
+- **Conversation-history dropped on inbound turns** → **FIXED in Plan
+  03**: `recentHistory` from the webhook body is now folded into the
+  `messages` list before the Claude loop runs, so Robin keeps discovery
+  context across turns. No longer an open risk.
+- **A long tool (Browser Use research) exceeds the webhook timeout and
+  AgentPhone drops the turn** → **MITIGATED**: Plan 05 registers the
+  webhook with `timeout=120` (the documented 5–120s max) and Plan 03
+  streams keepalive interim NDJSON lines *before* dispatching the tool
+  batch, so the turn stays open while the tool runs.
+- **Browser Use fails / hangs / rate-limited on stage** → **MITIGATED**:
+  Plan 03 ships a deterministic local `law.html` fallback (the research
+  tool falls back to the pre-vetted hosted fixture). **Integrity rule:
+  the mandatory recorded backup (Plan 06 Task 7) MUST be captured on the
+  REAL Browser Use path — the local fallback is a live-stage safety net
+  only, never the artifact.** Same bright line as the design doc's
+  live-vs-recorded rule.
+- **Multi-minute stage dead-air during the outbound call (audience
+  watches nothing while Robin negotiates)** → **RESOLVED by Plan 07's
+  live `/stage` projector**: the negotiation transcript streams turn-by-
+  turn onto the projected page so the room sees the call in real time.
+- **Missing ANTHROPIC_API_KEY / recording add-on not enabled** → both
+  are now explicit GATE items (G3 = `ANTHROPIC_API_KEY` for the Claude
+  loop; G5 = AgentPhone recording add-on, else the "recording in the
+  dashboard" acceptance criterion fails). Resolve in the GATE, not at
+  4 PM.
 - **~6 PM**: feature freeze. Whatever is end-to-end is the demo. Recorded
   backup must already exist.
 - **Live multi-minute negotiation drifts** → the recorded backup is the

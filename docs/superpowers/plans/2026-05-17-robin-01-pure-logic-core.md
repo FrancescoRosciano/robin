@@ -43,6 +43,16 @@ Plan 03 appends FastAPI deps later — never edited concurrently.
 - Create: `src/robin/__init__.py`
 - Create: `tests/__init__.py`
 
+- [ ] **Step 0: Initialize the git repository (if not already one)**
+
+Run: `cd /Users/francescorosciano/docs/robin && (git rev-parse --git-dir >/dev/null 2>&1 || git init)`
+Expected: either nothing / silent exit 0 (already a repo) or
+`Initialized empty Git repository in /Users/francescorosciano/docs/robin/.git/`.
+
+Note: a hardened `.gitignore` already exists from the project launchpad —
+do not overwrite it. This one-time bootstrap is what makes every later
+`git add/commit` step across all plans work.
+
 - [ ] **Step 1: Write `pyproject.toml`**
 
 ```toml
@@ -600,6 +610,11 @@ git commit -m "chore: ruff clean for pure-logic core"
 - **Spec coverage:** context pack guard, prompt slot guard, classifier
   three-way (24HF-#### + refund ⇒ DONE) — all from SPEC "Technical
   shape" + design-doc classifier rule. Covered.
+- **Git-init bootstrap:** Task 1 Step 0 runs
+  `git rev-parse --git-dir || git init` before any file is created.
+  Robin is not yet a git repository; this step makes it one (idempotently)
+  so every subsequent `git add/commit` across all plans succeeds. The
+  existing hardened `.gitignore` is preserved.
 - **Placeholder scan:** every code/test step has literal content; no
   TBD/TODO.
 - **Type consistency:** `models.py` copied verbatim from the 00 contract;

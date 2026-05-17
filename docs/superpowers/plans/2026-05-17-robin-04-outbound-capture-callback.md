@@ -482,6 +482,143 @@ git commit -m "feat: deliver_result (callback primary, stay-on stretch)"
 
 ---
 
+### Task 5: Optional live-turn callback (projector hook)
+
+**Files:**
+- Modify: `src/robin/outbound.py` (`capture_and_classify`, `make_place_negotiation_call`)
+- Test: `tests/test_outbound.py` (append)
+
+Plan 07 needs to observe each `TranscriptTurn` as it arrives so the projector can render turns in real time. AgentPhone's SSE stream may be single-consumer, so Plan 07's broadcaster must NOT open a second `stream_transcript` connection. This task adds an optional `on_turn` keyword-only callback to `capture_and_classify`. The callback is called with each turn as it is consumed from the SSE stream. Default is `None`; all existing tests pass unchanged.
+
+`capture_and_classify` is Plan-04-internal and is NOT in the frozen 00-contract interfaces. Adding a keyword-only optional parameter is backward-compatible.
+
+- [ ] **Step 1: Append the failing tests**
+
+```python
+# append to tests/test_outbound.py
+async def test_on_turn_callback_receives_each_turn():
+    """Each TranscriptTurn is forwarded to on_turn before classify."""
+    reg = CallRegistry()
+    client = FakeAgentPhoneClient(DONE_TURNS, call_id="c_obs")
+    collected: list = []
+
+    async def collector(turn):
+        collected.append(turn)
+
+    await capture_and_classify("c_obs", client=client, registry=reg,
+                               on_turn=collector)
+    assert len(collected) == len(DONE_TURNS)
+    assert collected[0].content == "I need to cancel."
+
+
+async def test_on_turn_none_is_backward_compatible():
+    """Omitting on_turn (default None) must not raise and must still classify."""
+    reg = CallRegistry()
+    client = FakeAgentPhoneClient(DONE_TURNS, call_id="c_compat")
+    await capture_and_classify("c_compat", client=client, registry=reg)
+    assert reg.get("c_compat").status == OutcomeStatus.DONE
+
+
+async def test_place_negotiation_call_forwards_on_turn():
+    """make_place_negotiation_call accepts on_turn and passes it through."""
+    reg = CallRegistry()
+    client = FakeAgentPhoneClient(DONE_TURNS, call_id="c_fwd")
+    collected: list = []
+
+    async def collector(turn):
+        collected.append(turn)
+
+    tool = make_place_negotiation_call(
+        client=client, registry=reg, agent_id="agt_robin",
+        from_number_id="num_robin", receptionist_to_number="+15550000002",
+        outbound_system_prompt="SYS-OUT", on_turn=collector)
+    await tool(phone="415-776-2200", member_name="Demo User",
+               citations=[{"citation": "X", "operative_quote": "q",
+                           "source_url": "u"}])
+    await asyncio.sleep(0.05)   # let the capture task finish
+    assert len(collected) == len(DONE_TURNS)
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `python3 -m pytest tests/test_outbound.py::test_on_turn_callback_receives_each_turn tests/test_outbound.py::test_on_turn_none_is_backward_compatible tests/test_outbound.py::test_place_negotiation_call_forwards_on_turn -q`
+Expected: FAIL — `TypeError: capture_and_classify() got an unexpected keyword argument 'on_turn'`.
+
+- [ ] **Step 3: Update `capture_and_classify` in `src/robin/outbound.py`**
+
+Change the signature and body of `capture_and_classify` (the current function — replace it in-place):
+
+```python
+async def capture_and_classify(call_id: str, *, client,
+                               registry: CallRegistry,
+                               on_turn=None) -> Outcome:
+    """Consume one SSE transcript until it ends, classify, store.
+
+    on_turn: optional async callable(TranscriptTurn) -> None.
+    Called for each turn before classification. Default None (no-op).
+    Does not open a second SSE connection; it observes the same stream.
+    """
+    lines: list[str] = []
+    async for turn in client.stream_transcript(call_id):
+        lines.append(f"{turn.role}: {turn.content}")
+        if on_turn is not None:
+            await on_turn(turn)
+    outcome = classify_transcript("\n".join(lines))
+    registry.set(call_id, outcome)
+    return outcome
+```
+
+- [ ] **Step 4: Update `make_place_negotiation_call` in `src/robin/outbound.py`**
+
+Add `on_turn=None` to the factory signature and forward it into `capture_and_classify`:
+
+```python
+def make_place_negotiation_call(*, client, registry: CallRegistry,
+                                agent_id: str, from_number_id: str,
+                                receptionist_to_number: str,
+                                outbound_system_prompt: str,
+                                on_turn=None):
+    """Build the frozen-signature place_negotiation_call tool callable.
+
+    Robin SAYS the public number but DIALS the controlled simulation
+    (receptionist_to_number) — never the real company.
+
+    on_turn: optional async callable(TranscriptTurn) forwarded to
+    capture_and_classify so Plan 07's projector can observe turns.
+    """
+
+    async def place_negotiation_call(phone: str, member_name: str,
+                                     citations: list[dict]) -> dict:
+        call_id = await client.place_call(
+            agent_id=agent_id, to_number=receptionist_to_number,
+            initial_greeting=f"Hi, I'm calling on behalf of {member_name}.",
+            system_prompt=outbound_system_prompt,
+            from_number_id=from_number_id)
+        asyncio.create_task(
+            capture_and_classify(call_id, client=client, registry=registry,
+                                 on_turn=on_turn))
+        return {"call_id": call_id}
+
+    return place_negotiation_call
+```
+
+- [ ] **Step 5: Run the full test suite**
+
+Run: `python3 -m pytest tests/test_outbound.py -q`
+Expected: PASS (9 passed — 6 original + 3 new).
+
+Run: `python3 -m pytest -q`
+Expected: all tests pass; coverage ≥ 80%.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/robin/outbound.py tests/test_outbound.py
+git commit -m "feat: on_turn optional callback in capture_and_classify (projector hook)"
+```
+
+---
+
 ## Self-Review
 
 - **Spec coverage:** AgentPhone client place/stream/recording
@@ -498,3 +635,11 @@ git commit -m "feat: deliver_result (callback primary, stay-on stretch)"
   callables into `tool_impls`). `AgentPhoneClient` + `TranscriptTurn`
   match Plan 03's `FakeAgentPhoneClient`. `classify_transcript` and
   `Outcome` imported from Plan 01 unchanged.
+- **Task 5 additive `on_turn` hook:** `capture_and_classify` gains a
+  keyword-only `on_turn=None` parameter; `make_place_negotiation_call`
+  gains `on_turn=None` and forwards it. Both default to `None` — all
+  existing tests pass without modification. `on_turn` is an internal
+  Plan 04 function parameter; it does NOT appear in the frozen 00-contract
+  interfaces (`place_negotiation_call` tool signature, `deliver_result`
+  tool signature, `AgentPhoneClient`, `TranscriptTurn`, `Outcome`) and
+  does not change them. Backward compatible.

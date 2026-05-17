@@ -86,6 +86,33 @@ Events: `connected` (callId, agentId, direction, from/to, status) →
 (requires the recording add-on enabled). This is "recording in the
 dashboard" for the demo.
 
+## Webhook delivery & signature — RESOLVED: Svix (2026-05-17, from dashboard)
+
+Confirmed from the AgentPhone Webhooks dashboard: webhook delivery is
+**Svix**. The signing secret is the `whsec_…` value on the Webhooks
+page (env `AGENTPHONE_WEBHOOK_SECRET`); the configured endpoint URL is a
+Svix ingest URL until you point it at your tunnel.
+
+**Do NOT hand-roll a plain HMAC-SHA256-hex check** (the earlier reference
+shape in `.claude/rules/robin-agentphone-security.md` is wrong for Svix).
+Svix scheme:
+- Headers: `svix-id`, `svix-timestamp`, `svix-signature`.
+- Signed content: `{svix-id}.{svix-timestamp}.{raw-body}`.
+- Secret after `whsec_` is base64; HMAC-SHA256; base64 result;
+  constant-time compare. `svix-signature` may carry multiple
+  space-separated `v1,<sig>` values. Timestamp → replay window.
+
+Implement with the official lib in `src/robin/signature.py` (Plan 00
+isolates the change point here):
+```python
+from svix.webhooks import Webhook, WebhookVerificationError
+wh = Webhook(os.environ["AGENTPHONE_WEBHOOK_SECRET"])
+payload = wh.verify(raw_body, dict(request.headers))  # raises on bad sig
+```
+Add `svix` to Plan 03's `pyproject.toml`/`requirements.txt`. Still verify
+the exact AgentPhone webhook **body** shape against the Moss
+`moss_agentphone.py` + live docs (Contract-Lock item #1).
+
 ## OPEN — confirm before relying on it
 - **Inbound caller DTMF capture (caller presses 1 / 2).** The Calls guide
   documents `digits` as something YOUR response SENDS (to navigate an
@@ -94,9 +121,9 @@ dashboard" for the demo.
   guide excerpt. Check `llms-full.txt` + the webhooks/events page + the
   Moss `moss_agentphone.py`. Fallback if no DTMF-in event: drive 1/2 by
   voice ("say 'one' to stay on, 'two' for a callback") — robust, same UX.
-- **HMAC signature verification** — header/algorithm not in the Calls
-  guide; the Moss `moss_agentphone.py` implements it. Copy the *approach*,
-  write fresh.
+- **HMAC signature verification** — RESOLVED: it's Svix. See the
+  "Webhook delivery & signature — RESOLVED: Svix" section above. No
+  longer open.
 
 ## Sponsor hooks (bonus tracks, after core works)
 - **Moss** for large-data semantic search (the cookbook is literally

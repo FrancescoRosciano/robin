@@ -1,0 +1,18 @@
+# Robin dev environment.
+#   Tests:  docker compose run --rm robin pytest -q
+#   Lint:   docker compose run --rm robin ruff check src tests
+#   Server: docker compose up robin   (Plan 03; container :8000, host :8080)
+# Host 8080 (not 8000): the unrelated Patter process owns host :8000.
+# Container still binds 8000; the tunnel targets host 8080.
+services:
+  robin:
+    build: .
+    image: robin:dev
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - /app/.venv          # never let the host 3.9 venv shadow the image
+    ports:
+      - "8080:8000"
+    command: pytest -q

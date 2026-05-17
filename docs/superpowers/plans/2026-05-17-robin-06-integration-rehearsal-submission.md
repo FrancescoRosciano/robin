@@ -177,7 +177,8 @@ async def _research(jurisdiction: str) -> dict:
     from robin.tools import research_cancellation_law
     return await research_cancellation_law(
         jurisdiction, browser=_browser,
-        law_url=f"{_settings.public_base_url}/fixture/law.html")
+        law_url=f"{_settings.public_base_url}/fixture/law.html",
+        law_html_path="src/robin/fixtures/law.html")
 
 
 _outbound_prompt = render_outbound_system_prompt(
@@ -206,6 +207,16 @@ app = build_app(
 > Note: `render_outbound_system_prompt(_pack, [])` will raise
 > `PromptRenderError` because `{{citations}}` is unfilled. **Fix in
 > Step 2** — the outbound prompt's citations must be bound at call time.
+>
+> Note (cross-ref Plan 03): the `_research` wrapper passes
+> `law_html_path="src/robin/fixtures/law.html"` so the research tool has a
+> **deterministic local fallback** if Browser Use fails/hangs on stage.
+> Plan 03's updated signature is
+> `research_cancellation_law(jurisdiction, *, browser, law_url,
+> law_html_path=None)` — `law_html_path` is the local committed fixture
+> the tool falls back to when the live Browser Use path errors. **The
+> mandatory recorded backup (Task 7) must still be captured on the REAL
+> Browser Use path — the local fallback is a live-stage safety net only.**
 
 - [ ] **Step 2: Bind citations at call time (correct the seam)**
 
@@ -242,6 +253,17 @@ Re-import check:
 Run: `cd /Users/francescorosciano/docs/robin && set -a && . ./.env && set +a && python3 -c "import robin.main; print('composed OK')"`
 Expected: `composed OK` (proves the startup guard + pack guard + prompt
 render all pass with the real `.env`).
+
+> **Cross-ref Plan 07 (not a conflict / not a surprise):** at execution
+> time Plan 07 additively wires the `/stage` projector route and the
+> `on_turn=broadcaster.publish` hook into `src/robin/main.py` (it builds
+> a `TurnBroadcaster` in `src/robin/broadcast.py`, mounts `/stage`, and
+> passes `on_turn=broadcaster.publish` into the outbound capture). So
+> `main.py` legitimately gains those lines when Plan 07's staging half
+> runs — this is expected and additive, NOT a collision with this task's
+> composition root. `on_turn` is Plan 04's optional kw-only callback
+> (Plan 04 Task 5), backward-compatible and outside the Plan 00 frozen
+> contract.
 
 - [ ] **Step 3: Commit**
 
@@ -351,10 +373,31 @@ Run: `python3 -c "import asyncio,os; from robin.agentphone_client import AgentPh
 Expected: a non-empty `recordingUrl` (the AgentPhone dashboard shows the
 call + recording — this is the "dashboard" deliverable; no custom UI).
 
-- [ ] **Step 3: Gate**
+- [ ] **Step 3: Agent-identity / prompt-routing assertion**
 
-Full happy path worked once end-to-end → **immediately** go to Task 7
-(capture the backup before touching anything else).
+From the captured outbound transcript (the SSE `turn` accumulation logged
+in Step 1), verify **both** agents ran their provisioned persona — this
+catches a mis-provisioned 2nd agent or a wrong systemPrompt landing on
+the wrong leg:
+
+- The **receptionist** agent ran ITS provisioned escalation script: all
+  four escalation blocks appear in the receptionist's turns (in person /
+  50% off / certified letter / stalling), matching
+  `src/robin/fixtures/prompts/receptionist.txt` (Plan 02).
+- **Robin's outbound systemPrompt is in effect**: Robin cites the X/Y/Z
+  law and delivers the verbatim two-option ultimatum, matching
+  `src/robin/fixtures/prompts/outbound_negotiation.txt` (Plan 02).
+
+If the receptionist capitulates without the four blocks, or Robin never
+cites the law / never delivers the ultimatum, the 2nd agent or a
+systemPrompt is mis-routed — fix Plan 05 provisioning (which prompt is
+bound to which agent) before trusting the pipeline. Do not proceed.
+
+- [ ] **Step 4: Gate**
+
+Full happy path worked once end-to-end **and** both personas verified in
+the transcript → **immediately** go to Task 7 (capture the backup before
+touching anything else).
 
 ---
 
@@ -362,6 +405,17 @@ Full happy path worked once end-to-end → **immediately** go to Task 7
 
 > DAY_PLAN + design doc: the recorded backup is the Google-form video AND
 > the stage safety net. Never go on stage without it already recorded.
+
+> **Browser Use integrity decision (do not relitigate):** the mandatory
+> recorded backup MUST be captured on the **REAL Browser Use path** — the
+> live research tool actually hitting the web. The Plan 03 local
+> `law.html` fixture fallback is a **live-stage safety net only**; a
+> backup recorded on the fallback path is NOT a valid submission artifact.
+> Same integrity reasoning as the design doc's live-vs-recorded bright
+> line: scripting/safety nets are fine and disclosed, but the recorded
+> proof must show the genuine pipeline running. Before recording, confirm
+> the uvicorn log shows `research_cancellation_law` returned via Browser
+> Use (not the local-fixture fallback branch).
 
 - [ ] **Step 1: Screen-record one clean, unattended, end-to-end run**
 
@@ -386,6 +440,15 @@ recording with whatever currently works** (DAY_PLAN freeze rule).
 ---
 
 ### Task 8: Stage runsheet card + rehearse ×3
+
+> **Cross-ref Plan 07 (do not run this bare):** the "rehearse ×3" below
+> must be performed WITH Plan 07's full stage setup — the `/stage`
+> projector page live on the screen, the "AI simulation" disclosure
+> slide, the PA system, and an audible callback. **Plan 07 Task 6
+> (integrated stage rehearsal) supersedes/extends this task**; the
+> combined rehearsal (this + Plan 07) is the single gate before
+> submission. Treat the steps here as the content checklist; Plan 07
+> owns the AV/staging wrapper around it.
 
 **Files:**
 - Create: `docs/RUNSHEET.md`
@@ -435,12 +498,39 @@ Expected: **no output**. Also: `git ls-files | grep -E '\.env$|context_pack.json
 Expected: **no output** (none tracked). If anything appears, STOP and
 remediate before any push.
 
-- [ ] **Step 3: Final green check**
+- [ ] **Step 3: Sync `.env.example` to the full required-var set (public-repo runnable)**
+
+Before the repo goes public, ensure `.env.example` lists **every**
+variable the startup guard requires — a stale example causes a
+startup-guard failure for anyone cloning the public repo. It must contain
+(placeholder values only — **no real secrets**):
+
+```
+ANTHROPIC_API_KEY=
+AGENTPHONE_API_KEY=
+AGENTPHONE_WEBHOOK_SECRET=
+BROWSER_USE_API_KEY=
+ROBIN_AGENT_ID=
+FROM_NUMBER_ID=
+RECEPTIONIST_TO_NUMBER=
+PUBLIC_BASE_URL=
+RECEPTIONIST_AGENT_ID=
+RECEPTIONIST_NUMBER_ID=
+```
+
+Verify every name in the config guard appears in `.env.example`:
+
+Run: `python3 -c "from robin.config import _REQUIRED; missing=[v for v in _REQUIRED if v not in open('.env.example').read()]; print('MISSING:', missing) if missing else print('env.example OK')"`
+Expected: `env.example OK` (every `config._REQUIRED` name is present).
+
+Then: `git add .env.example && git commit -m "chore: sync .env.example to full required-var set"`.
+
+- [ ] **Step 4: Final green check**
 
 Run: `python3 -m pytest -q && python3 -m ruff check src tests`
 Expected: all tests pass, coverage ≥ 80%, ruff clean.
 
-- [ ] **Step 4: Hand off to the human (these steps the agent must NOT do)**
+- [ ] **Step 5: Hand off to the human (these steps the agent must NOT do)**
 
 Print this checklist for the user to perform via `!`:
 
@@ -453,7 +543,7 @@ Print this checklist for the user to perform via `!`:
 5. Do this BEFORE 8:00 PM.
 ```
 
-- [ ] **Step 5: Final commit (content only — no secrets)**
+- [ ] **Step 6: Final commit (content only — no secrets)**
 
 ```bash
 git add README.md
@@ -490,8 +580,36 @@ git commit -m "docs: README run steps + integrity statement for submission"
 - **Placeholder scan:** Task 2 explicitly flags the `{{citations}}`
   render trap and fixes it with full code (call-time citation binding) —
   no unresolved placeholder ships.
+- **Browser Use fallback wired (Task 2):** the `_research` wrapper passes
+  `law_html_path="src/robin/fixtures/law.html"` into Plan 03's
+  `research_cancellation_law(jurisdiction, *, browser, law_url,
+  law_html_path=None)` — deterministic local fallback for live-stage
+  safety. The integrity rule is stated at the call site and at Task 7:
+  the recorded backup MUST be on the REAL Browser Use path; the fallback
+  is a stage safety net only, never the artifact.
+- **Agent-identity / prompt-routing assertion (Task 6 Step 3):** the
+  captured outbound transcript is checked so the receptionist ran its
+  four provisioned escalation blocks AND Robin's outbound systemPrompt
+  is in effect (law cited + verbatim ultimatum) — catches a
+  mis-provisioned 2nd agent or a wrong systemPrompt before trusting the
+  pipeline.
+- **`.env.example` synced (Task 9 Step 3):** the public repo is runnable
+  — every `config._REQUIRED` var (incl. `ANTHROPIC_API_KEY`,
+  `RECEPTIONIST_AGENT_ID`, `RECEPTIONIST_NUMBER_ID`) appears in
+  `.env.example` with placeholder-only values; a programmatic check
+  enforces no stale-example startup-guard failure. No secrets in the
+  example.
+- **Plan 07 cross-refs (no collisions):** Task 8's "rehearse ×3" is
+  explicitly run WITH Plan 07's full stage setup (projector, disclosure
+  slide, PA, audible callback) — Plan 07 Task 6 supersedes/extends it.
+  Task 2 notes that Plan 07 additively wires the `/stage` route +
+  `on_turn=broadcaster.publish` into `main.py` at execution time
+  (`on_turn` = Plan 04's optional kw-only callback, backward-compatible,
+  outside the Plan 00 frozen contract) — expected, not a surprise.
 - **Type consistency:** `AnthropicLLM.create(system, messages, tools)`
   matches `loop.run_turn`'s `llm`; `_tool_impls` keys match
   `TOOL_SCHEMAS` names; `make_place_negotiation_call` /
   `make_deliver_result` signatures match Plan 04; `load_settings()` vars
-  match Plan 05's printed env names. Consistent end-to-end.
+  match Plan 05's printed env names; `research_cancellation_law`'s new
+  `law_html_path=None` kwarg matches Plan 03's updated signature.
+  Consistent end-to-end.

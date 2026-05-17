@@ -72,6 +72,47 @@ The prior **Patter / `getpatter`** build under `~/docs/patter/` is
 **reference only — NOT submittable** (wrong platform, reads as a fork,
 built outside hours). All submitted code is written fresh, here, today.
 
+### Pre-flight done (2026-05-17 pre-Wave-1)
+
+- Git repo initialised; private GitHub remote
+  **`FrancescoRosciano/robin`** created (`origin`). Initial bootstrap
+  commit made locally. **Not pushed** — the human pushes/makes-public at
+  submission (agent push stays denied).
+- Docker dev environment built and verified (see next section).
+  Toolchain green on Python 3.12.13: fastapi 0.136, uvicorn 0.47,
+  anthropic 0.102, httpx 0.28, browser-use-sdk 3.6
+  (`from browser_use_sdk.v3 import AsyncBrowserUse` OK), pytest 9.0,
+  pytest-cov 7.1, pytest-asyncio 1.3, ruff 0.15.
+- `src/` and `tests/` still empty — **Wave 1 (Plan 01) is the next
+  action.** Keys still gate only Wave 3.
+
+## Dev environment — Docker is MANDATORY on this machine
+
+**Do not fight the host Python.** This machine runs **ThreatLocker**
+(endpoint allow-listing). It blocks every non-allow-listed native
+binary *per file*: all Homebrew Pythons (3.12/3.13/3.14) fail to
+`dlopen` stdlib C-extensions (`mmap … errno=1`), and every compiled
+wheel (`pydantic-core`, `ruff`, `coverage`, …) would trip a separate
+approval prompt. Only `/usr/bin/python3` (3.9.6 — too old) is
+allow-listed. Whack-a-mole approvals are not viable under the deadline.
+
+**All build / test / run happens in Docker** (container Python runs in
+the Linux VM, outside host ThreatLocker enforcement):
+
+```
+docker compose run --rm robin pytest -q          # tests
+docker compose run --rm robin ruff check src tests
+docker compose up robin                           # webhook server :8000 (Plan 03)
+```
+
+Files: `Dockerfile` (python:3.12-slim), `docker-compose.yml`,
+`requirements.txt` (runtime), `requirements-dev.txt` (+ test/lint).
+Source is bind-mounted, so edits are live — rebuild only when
+requirements change (`docker compose build robin`). The local `.venv/`
+(3.9.6) is unusable for this project; ignore it. Plan 01's
+`python3 -m pytest` / `ruff` steps run **inside the container**, not on
+the host.
+
 ## Mandatory components
 
 **Robin = AgentPhone (host platform — the phone) + Browser Use (web

@@ -36,6 +36,30 @@ eat the build.
 
 ---
 
+### Task 0: API contract lock (Wave-1 GATE — do not skip)
+
+The provisioning endpoint shapes and field names this script uses —
+`POST /v1/agents` `{"name":...}`, `POST /v1/numbers` `{}`,
+bind `POST /v1/agents/{id}/numbers` `{"numberId":...}`,
+`POST /v1/webhooks` `{"url":...,"timeout":...}` — are taken from the
+Moss×AgentPhone cookbook and `agentphone/agentphone-notes.md` and are **NOT
+confirmed against a live key**. They must be verified as part of the 5-fact
+API-contract-lock tracked in Plan 00's GATE (`docs/superpowers/plans/2026-05-17-robin-00-execution-sequence.md`)
+before this script is run.
+
+`agentphone/agentphone-notes.md` marks HMAC signature verification and
+inbound DTMF capture as OPEN (unconfirmed against live API). Field names
+in provisioning endpoints carry the same uncertainty.
+
+- [ ] **Step 1: Before running Tasks 2–4, confirm all five field names
+  match the live API** (by reading `llms-full.txt` and the webhooks/events
+  page, or by a throwaway test call with `curl` once the key is in hand).
+  `scripts/setup_agentphone.py` is **the single place to adjust field
+  names** if the live API differs. This is a hard gate — do NOT run the
+  provisioning script until this check is complete.
+
+---
+
 ### Task 1: Write the provisioning script (key-INDEPENDENT — Wave 1/2)
 
 **Files:**
@@ -104,7 +128,11 @@ def main() -> None:
     robin_agent = os.environ.get("ROBIN_AGENT_ID") or _create_agent(c, "Robin")
     robin_number = os.environ.get("FROM_NUMBER_ID") or _provision_number(c)
     _bind(c, robin_agent, robin_number)
-    _post(c, "/webhooks", {"url": f"{PUBLIC_BASE_URL}/webhook"})
+    # agentphone-notes: webhook timeout is configurable 5–120s (default 30s).
+    # Robin's Browser Use research turn can take ~60s, so 30s would time the
+    # turn out mid-research. 120s plus the loop's keepalive interims (Plan 03)
+    # keeps the turn alive. Cross-reference Plan 03's keepalive implementation.
+    _post(c, "/webhooks", {"url": f"{PUBLIC_BASE_URL}/webhook", "timeout": 120})
 
     rep_prompt = open(RECEPTIONIST_PROMPT_PATH, encoding="utf-8").read()
     rep_agent = os.environ.get("RECEPTIONIST_AGENT_ID") or _create_agent(
@@ -200,7 +228,35 @@ Add to `/Users/francescorosciano/docs/robin/.env` the printed IDs plus:
 `PUBLIC_BASE_URL`, and `RECEPTIONIST_TO_NUMBER` (E.164 of the receptionist
 number shown in the AgentPhone dashboard).
 
-- [ ] **Step 4: Verify `.env` is gitignored**
+- [ ] **Step 4: Verify the recording add-on is enabled (demo GATE)**
+
+`agentphone/agentphone-notes.md`: `GET /v1/calls/{id}` returns
+`recordingUrl` and `recordingAvailable: true` **only if the recording
+add-on is enabled on the account**. This gates the demo's "recording
+visible in the dashboard" acceptance criterion.
+
+Place one throwaway test call via the AgentPhone dashboard (or `curl`):
+
+```bash
+# After the call ends, substitute the real call_id:
+curl -s -H "Authorization: Bearer $AGENTPHONE_API_KEY" \
+  https://api.agentphone.ai/v1/calls/<call_id> | python3 -m json.tool
+```
+
+Expected output includes:
+```json
+{
+  "recordingAvailable": true,
+  "recordingUrl": "https://..."
+}
+```
+
+If `recordingAvailable` is `false` or absent: **stop — go to the
+AgentPhone dashboard → account / add-ons → enable the recording add-on —
+then repeat this step.** Do not proceed to Task 4 until `recordingAvailable`
+is confirmed `true`.
+
+- [ ] **Step 5: Verify `.env` is gitignored**
 
 Run: `git check-ignore .env && echo IGNORED`
 Expected: `.env` then `IGNORED` (must NOT be trackable).
@@ -247,10 +303,24 @@ git commit --allow-empty -m "chore: provisioning complete (IDs in gitignored .en
   `/v1/agents/{id}/numbers`, `/v1/webhooks`). If a field name differs in
   the live API, that is the single place to adjust (operator watches
   output — this is why the strategy is executing-plans, not subagent).
+- **Webhook timeout = 120s:** registered in `_post(c, "/webhooks", {...,
+  "timeout": 120})`. Rationale: agentphone-notes states 30s default;
+  Browser Use research can take ~60s; Plan 03 keepalive interims extend
+  the turn, but 120s at the webhook layer is the backstop.
+- **Recording add-on gate:** Task 3 Step 4 requires `GET /v1/calls/{id}`
+  to return `recordingAvailable: true` before proceeding to Task 4. If
+  false, the add-on must be enabled in the AgentPhone dashboard. This
+  gates the demo's "recording visible in the dashboard" acceptance
+  criterion (agentphone-notes "Recording").
+- **Task 0 API-contract gate:** endpoint field names (`name`,
+  `numberId`, `url`, `timeout`) are taken from the cookbook and are not
+  live-key confirmed. Task 0 mandates verifying them against the live API
+  (via `llms-full.txt`, the webhooks/events page, or a throwaway `curl`)
+  as part of Plan 00's 5-fact GATE before the script is run.
 - **Type consistency:** prints exactly the env var names Plan 03
   `config.load_settings()` requires (`ROBIN_AGENT_ID`, `FROM_NUMBER_ID`,
   `RECEPTIONIST_TO_NUMBER`, `PUBLIC_BASE_URL`) so Plan 06's startup guard
   passes. Reads `src/robin/fixtures/prompts/receptionist.txt` (Plan 02).
-- **Security:** key/IDs only via env + gitignored `.env`; Task 3 Step 4
+- **Security:** key/IDs only via env + gitignored `.env`; Task 3 Step 5
   hard-checks `.env` is ignored; nothing secret is printed back or
   committed.
