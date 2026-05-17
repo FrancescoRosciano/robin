@@ -75,6 +75,12 @@ Robin calls you back: **cancelled, last month refunded, confirmation
 > sides of the demo are scripted and stated to be. A faked demo is
 > disqualifying; this isn't one.</sub>
 
+> <sub><strong>Recorded run:</strong> the unedited end-to-end recording
+> (the required submission artifact + stage safety net) is at
+> `docs/demo-backup-recording.<ext>` — see the stage card
+> `docs/RUNSHEET.md` for its exact location and the on-stage
+> disclosure.</sub>
+
 ---
 
 ## How Robin works
