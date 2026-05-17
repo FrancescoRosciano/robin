@@ -30,3 +30,20 @@ async def test_capture_stores_blocked_outcome():
 
 def test_registry_get_unknown_is_none():
     assert CallRegistry().get("nope") is None
+
+
+class _BoomClient:
+    placed: list = []
+
+    async def stream_transcript(self, call_id):
+        if False:
+            yield  # make this an async generator
+        raise RuntimeError("stream dropped")
+
+
+async def test_capture_stores_blocked_on_stream_error():
+    reg = CallRegistry()
+    await capture_and_classify("cerr", client=_BoomClient(), registry=reg)
+    o = reg.get("cerr")
+    assert o.status == OutcomeStatus.BLOCKED
+    assert "stream error" in o.detail
