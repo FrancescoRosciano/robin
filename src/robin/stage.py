@@ -68,7 +68,7 @@ _STAGE_HTML = """\
 <body>
 <div id="banner">
   AI SIMULATION &mdash; the receptionist is an AI.&nbsp;
-  The real 24 Hour Fitness is never called.
+  The real 24 Hour Gym is never called.
 </div>
 <div id="transcript"></div>
 <script>
