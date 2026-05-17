@@ -1,0 +1,19 @@
+# Secrets / PII — NEVER commit
+.env
+.env.*
+!.env.example
+*.local.json
+context_pack.local.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
+# misc
+.DS_Store
+*.log
