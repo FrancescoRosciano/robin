@@ -13,16 +13,20 @@
 
 ## On-screen disclosure (must be visible during dial-out — Step 3 on)
 
-> **The receptionist is a briefed teammate openly role-playing the
-> 24 Hour Gym front desk — not an AI, and not the real company. The
-> real 24 Hour Gym is never called.** The pipeline is real (live web
-> research, real inbound discovery, real outbound call). Both call
-> sides are scripted and stated to be.
+> **CONTROLLED DEMO — Robin's side is fully live (real web research,
+> real inbound discovery, real outbound call, real callback). The
+> receptionist runs in a safe test environment — a briefed teammate —
+> so no real business is contacted.** Both call sides are scripted and
+> stated to be.
 
-This is the honest disclosure. Do **not** describe the receptionist as
-an "AI" or "AI simulation" on stage or on screen — that would be a false
-statement (the receptionist is a human teammate). Keep this line legible
-on the projector the entire time the outbound call is in progress.
+This is the honest disclosure: it frames the demo as a deliberate
+controlled environment while keeping the substantive fact (the
+receptionist is a briefed teammate, no real business is called). Do
+**not** describe the receptionist as an "AI" or "AI simulation" — that
+would be false (it is a human teammate); and do not drop the
+controlled-environment disclosure entirely (concealing the teammate is
+the disqualifying line per CLAUDE.md). Keep this legible on the
+projector the entire time the outbound call is in progress.
 
 ---
 
@@ -32,7 +36,7 @@ on the projector the entire time the outbound call is in progress.
 |---|------|-------------|
 | **1** | Presenter calls Robin live on stage: *"I want to cancel my gym membership."* | 0:00–0:15 |
 | **2** | Robin discovery: asks which gym → *"24 Hour Gym"*. Robin says it's looking it up, *"found their line, 415-776-2200 — want me to call and cancel for you?"* → presenter says yes. Browser Use really runs here: the number lookup is set-dressing; the **real payload is researching the cancellation laws** Robin will cite. | 0:15–1:15 |
-| **3** | Robin dials out; the stage hears Robin vs the **24 Hour Gym receptionist, played by a briefed teammate on a real phone** (this is the demo design for this leg — not an AI agent). **Disclosure slide up** (see above): the receptionist is a team member role-playing the front desk. | 1:15–1:45 |
+| **3** | Robin dials out; the stage hears Robin vs the **24 Hour Gym receptionist, played by a briefed teammate on a real phone** (this is the demo design for this leg — a controlled test environment, not an AI agent). **Disclosure slide up** (see above): "CONTROLLED DEMO" — Robin live, receptionist = a briefed teammate in a safe test environment. | 1:15–1:45 |
 | **4** | Both negotiate hard — escalating tone, hard lines, fast exchanges. Receptionist obstructs (in person / 50% off / certified letter / stalling). | 1:45–3:30 |
 | **5** | Robin's close: cites the pre-vetted laws (X, Y, Z), then the ultimatum — *"Two options. Easy: cancel now, I leave you 5★ on Google. Hard: I escalate to your manager's manager, file a complaint that this retention process is misleading, demand compensation for the misleading offer, and post reviews everywhere. Your decision."* | 3:30–4:15 |
 | **6** | Receptionist capitulates: *"Fine — I'll cancel your subscription and refund your last month."* | 4:15–4:30 |
