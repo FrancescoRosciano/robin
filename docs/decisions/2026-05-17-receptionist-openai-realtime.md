@@ -1,7 +1,12 @@
 # Decision: OpenAI Realtime as the simulated receptionist
 
 - **Date:** 2026-05-17
-- **Status:** Accepted
+- **Status:** SUPERSEDED (same day) by
+  `docs/decisions/2026-05-17-receptionist-teammate-phone.md` — a human
+  teammate on a real phone became available, which is simpler, more
+  robust on stage, and removes the telephony-bridge open question
+  entirely. This record is kept on file; the Realtime approach is a
+  documented option only if the teammate falls through.
 - **Supersedes:** the local TTS soundboard (`scripts/receptionist_tts.sh`)
   as the *primary* receptionist; the soundboard is demoted to last-ditch
   zero-dependency safety net.

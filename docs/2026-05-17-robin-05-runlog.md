@@ -33,21 +33,26 @@ Per the plan's pre-decided gate ("don't rabbit-hole undocumented
 hosted-mode under deadline"), a local fallback was invoked. Robin's
 pipeline is unchanged either way; it still "dials the number."
 
-**DECISION (2026-05-17, supersedes the soundboard as primary):** the
-receptionist is to be played by an **OpenAI Realtime** speech-to-speech
-session, not a human-paced soundboard — so it negotiates dynamically
-against Robin (defends each block, only capitulates on the two-option
-ultimatum) instead of replaying fixed lines. See
-`docs/decisions/2026-05-17-receptionist-openai-realtime.md` for full
-rationale, the telephony-bridge open question, and consequences.
+**DECISION (2026-05-17, FINAL — chosen & wired):** the receptionist is
+played by a **human teammate on a real phone**, reading the cheat card
+derived from `src/robin/fixtures/prompts/receptionist.txt`. This is
+Plan 05's other pre-decided fallback ("set RECEPTIONIST_TO_NUMBER to a
+teammate's phone"). `RECEPTIONIST_TO_NUMBER` in `.env` is mirrored from
+`TEAMMATE_NUMBER`. Robin's pipeline is unchanged — it just dials a
+number a person answers. This removes the OpenAI-Realtime telephony
+bridge (and its undocumented AgentPhone audio-contract dependency) from
+the critical path entirely.
 
 Fallback tiers, in order:
-1. **OpenAI Realtime receptionist** (primary) — dynamic voice
-   negotiation, persona = `src/robin/fixtures/prompts/receptionist.txt`.
-   Implementation deferred (bridge work — see the decision record).
-2. **Local TTS soundboard** (last-ditch) — `scripts/receptionist_tts.sh`,
-   macOS-`say`, human-paced; kept as the zero-dependency safety net if
-   the Realtime bridge isn't ready by the stage cutoff.
+1. **Human teammate on a phone** (PRIMARY — chosen, wired). Number in
+   `.env` (`RECEPTIONIST_TO_NUMBER` = `TEAMMATE_NUMBER`). Script:
+   `docs/2026-05-17-receptionist-cheat-card.md`.
+2. **OpenAI Realtime receptionist** (optional, SUPERSEDED as primary) —
+   see `docs/decisions/2026-05-17-receptionist-openai-realtime.md`;
+   kept on file, implementation not pursued unless the teammate falls
+   through and a dynamic auto-receptionist is wanted later.
+3. **Local TTS soundboard** (last-ditch, zero-dependency) —
+   `scripts/receptionist_tts.sh` (macOS `say`).
 
 ## Still OPEN (not Plan 05-blocking; carried forward)
 
