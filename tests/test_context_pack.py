@@ -58,3 +58,10 @@ def test_non_string_field_raises(tmp_path):
     f.write_text(json.dumps(d))
     with pytest.raises(ContextPackError, match="field must be a string: jurisdiction"):
         load_context_pack(str(f))
+
+
+def test_non_dict_json_root_raises(tmp_path):
+    f = tmp_path / "p.json"
+    f.write_text("[]")
+    with pytest.raises(ContextPackError, match="must be a JSON object"):
+        load_context_pack(str(f))

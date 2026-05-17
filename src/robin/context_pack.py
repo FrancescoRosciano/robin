@@ -24,6 +24,9 @@ def load_context_pack(path: str) -> ContextPack:
     except json.JSONDecodeError as e:
         raise ContextPackError(f"context pack is not valid JSON: {path}") from e
 
+    if not isinstance(raw, dict):
+        raise ContextPackError(f"context pack must be a JSON object: {path}")
+
     for key in _FIELDS:
         if key not in raw:
             raise ContextPackError(f"missing field: {key}")
