@@ -30,7 +30,10 @@ class AgentPhoneClient:
             "systemPrompt": system_prompt, "fromNumberId": from_number_id})
         r.raise_for_status()
         body = r.json()
-        return body.get("id") or body.get("callId")
+        call_id = body.get("id") or body.get("callId")
+        if not call_id:
+            raise ValueError("AgentPhone /calls response missing call id")
+        return call_id
 
     async def stream_transcript(self, call_id: str
                                 ) -> AsyncIterator[TranscriptTurn]:
