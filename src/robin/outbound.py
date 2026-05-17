@@ -40,3 +40,27 @@ async def capture_and_classify(call_id: str, *, client,
     outcome = classify_transcript("\n".join(lines))
     registry.set(call_id, outcome)
     return outcome
+
+
+def make_place_negotiation_call(*, client, registry: CallRegistry,
+                                agent_id: str, from_number_id: str,
+                                receptionist_to_number: str,
+                                outbound_system_prompt: str):
+    """Build the frozen-signature place_negotiation_call tool callable.
+
+    Robin SAYS the public number but DIALS the controlled simulation
+    (receptionist_to_number) — never the real company.
+    """
+
+    async def place_negotiation_call(phone: str, member_name: str,
+                                     citations: list[dict]) -> dict:
+        call_id = await client.place_call(
+            agent_id=agent_id, to_number=receptionist_to_number,
+            initial_greeting=f"Hi, I'm calling on behalf of {member_name}.",
+            system_prompt=outbound_system_prompt,
+            from_number_id=from_number_id)
+        asyncio.create_task(
+            capture_and_classify(call_id, client=client, registry=registry))
+        return {"call_id": call_id}
+
+    return place_negotiation_call
