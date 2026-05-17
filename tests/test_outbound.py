@@ -1,7 +1,7 @@
 import asyncio
 
 from robin.models import OutcomeStatus
-from robin.outbound import CallRegistry, capture_and_classify, make_place_negotiation_call
+from robin.outbound import CallRegistry, capture_and_classify, make_deliver_result, make_place_negotiation_call
 from tests.fakes import FakeAgentPhoneClient
 
 DONE_TURNS = [
@@ -65,3 +65,26 @@ async def test_place_negotiation_call_dials_and_spawns_capture():
     assert client.placed[0]["to_number"] == "+15550000002"  # dials the sim, not 415-...
     await asyncio.sleep(0.05)  # let the capture task finish the fake stream
     assert reg.get("c9").confirmation == "24HF-4471"
+
+
+async def test_deliver_result_callback_places_call():
+    client = FakeAgentPhoneClient([], call_id="cb1")
+    tool = make_deliver_result(
+        client=client, agent_id="agt_robin", from_number_id="num_robin",
+        callback_number="+15550000001")
+    res = await tool(channel="callback",
+                     summary="Cancelled, last-month refund.",
+                     confirmation="24HF-4471")
+    assert res["delivered"] is True
+    assert client.placed[0]["to_number"] == "+15550000001"
+
+
+async def test_deliver_result_stay_on_does_not_place_call():
+    client = FakeAgentPhoneClient([], call_id="x")
+    tool = make_deliver_result(
+        client=client, agent_id="a", from_number_id="n",
+        callback_number="+15550000001")
+    res = await tool(channel="stay_on", summary="Done.",
+                     confirmation="24HF-4471")
+    assert res["delivered"] is True
+    assert client.placed == []

@@ -76,3 +76,27 @@ def make_place_negotiation_call(*, client, registry: CallRegistry,
         return {"call_id": call_id}
 
     return place_negotiation_call
+
+
+def make_deliver_result(*, client, agent_id: str, from_number_id: str,
+                         callback_number: str):
+    """Build the frozen-signature deliver_result tool callable.
+
+    channel "callback": place a fresh outbound call to the caller with
+    the result. channel "stay_on": no call — the text is spoken on the
+    held inbound turn by the loop (stretch path).
+    """
+
+    async def deliver_result(channel: str, summary: str,
+                             confirmation: str | None) -> dict:
+        spoken = summary if not confirmation else (
+            f"{summary} Confirmation number {confirmation}.")
+        if channel == "callback":
+            await client.place_call(
+                agent_id=agent_id, to_number=callback_number,
+                initial_greeting="Hi, it's Robin with an update.",
+                system_prompt=f"Tell the caller, then stop: {spoken}",
+                from_number_id=from_number_id)
+        return {"delivered": True}
+
+    return deliver_result
