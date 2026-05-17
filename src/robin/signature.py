@@ -1,9 +1,15 @@
 """Svix webhook signature verification — single chokepoint over raw bytes."""
+import json
+
 from svix.webhooks import Webhook, WebhookVerificationError
 
 
 class SignatureError(Exception):
     """Raised when the webhook signature is absent, malformed, or invalid."""
+
+
+class MalformedJSONError(Exception):
+    """Raised when the webhook body is validly signed but contains malformed JSON."""
 
 
 def verify_signature(raw_body: bytes, headers: dict[str, str], secret: str) -> bool:
@@ -19,6 +25,10 @@ def verify_signature(raw_body: bytes, headers: dict[str, str], secret: str) -> b
         # freshness window by default — stale or future-dated deliveries
         # are rejected here, guarding against replay attacks.
         Webhook(secret).verify(raw_body, headers)
+    except json.JSONDecodeError as exc:
+        # Svix's verify() parses JSON internally; trap decode errors
+        # as a distinct exception to handle at the app layer.
+        raise MalformedJSONError("malformed JSON in webhook body") from exc
     except WebhookVerificationError as exc:
         raise SignatureError("invalid webhook signature") from exc
     except UnicodeDecodeError as exc:
