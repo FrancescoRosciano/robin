@@ -26,9 +26,11 @@ Pitch unchanged ("phone your agent; it does the call you hate").
    cancel for you?" → presenter says yes. Browser Use really runs here:
    the number lookup is set-dressing; the **real payload is researching
    the cancellation laws** Robin will cite.
-3. Robin dials out; the stage hears Robin vs a **simulated 24 Hour
-   Gym receptionist** (a 2nd controlled AgentPhone agent). Disclose
-   on-screen that the receptionist is an AI simulation.
+3. Robin dials out; the stage hears Robin vs the **24 Hour Gym
+   receptionist, played by a briefed teammate on a real phone** (this
+   is the demo design for this leg — not an AI agent). Disclose
+   on-screen that the receptionist is a team member role-playing the
+   front desk.
 4. Both negotiate hard — escalating tone, hard lines, fast exchanges.
    Receptionist obstructs (in person / 50% off / certified letter /
    stalling).
@@ -44,18 +46,21 @@ Pitch unchanged ("phone your agent; it does the call you hate").
 
 **Integrity bright line:** the pipeline genuinely runs — real Browser
 Use legal research, real AgentPhone inbound discovery, real outbound
-call to the controlled simulated receptionist. The raw run is recorded
-for the public repo + the Google-form video. Scripting both call sides
-(Robin's playbook + the simulated receptionist) is fine and disclosed;
-a faked video or non-building repo is disqualifying. The outbound call
-never reaches the real company — only the AI simulation.
+call to the receptionist (a briefed teammate role-playing the 24 Hour
+Gym front desk on a real phone). The raw run is recorded for the public
+repo + the Google-form video. Scripting both call sides (Robin's
+playbook + the teammate's receptionist cheat card) is fine and
+disclosed; a faked video or non-building repo is disqualifying. The
+outbound call never reaches the real company — only the briefed
+teammate.
 
 **Risks to manage:** (a) live multi-minute negotiation on stage — keep
 a clean recorded backup video (it is the required submission artifact
 regardless); (b) the cited laws (X, Y, Z) must be real and pre-verified,
 hosted verbatim — a wrong statute at YC is fatal; (c) named real company
-+ simulated receptionist — keep the "AI simulation" disclosure visible
-to stay honest and brand-safe.
++ a teammate role-playing the receptionist — keep the "team member
+role-playing the front desk" disclosure visible to stay honest and
+brand-safe.
 
 Full brief + build order:
 `~/.gstack/projects/robin/francescorosciano-unknown-design-20260517-112530.md`
