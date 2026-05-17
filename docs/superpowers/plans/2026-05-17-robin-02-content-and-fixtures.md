@@ -8,7 +8,7 @@
 
 **Goal:** Lock the three demo-critical content artifacts: (1) the
 pre-vetted cancellation-law page `law.html` with **primary-source-verified**
-citations, (2) the simulated 24 Hour Fitness receptionist system prompt,
+citations, (2) the simulated 24 Hour Gym receptionist system prompt,
 (3) Robin's inbound-discovery and outbound-negotiation prompt templates —
 with no unfilled `{{slot}}` other than the intended pack/citation slots.
 
@@ -179,7 +179,7 @@ git commit -m "feat: pre-vetted cancellation-law fixture page (verbatim)"
 
 ---
 
-### Task 3: Simulated 24 Hour Fitness receptionist prompt
+### Task 3: Simulated 24 Hour Gym receptionist prompt
 
 **Files:**
 - Create: `src/robin/fixtures/prompts/receptionist.txt`
@@ -187,7 +187,7 @@ git commit -m "feat: pre-vetted cancellation-law fixture page (verbatim)"
 - [ ] **Step 1: Write the receptionist system prompt (verbatim from the design doc, capitulation locked)**
 
 ```text
-You are a front-desk receptionist at 24 Hour Fitness. A caller wants to
+You are a front-desk receptionist at 24 Hour Gym. A caller wants to
 cancel their membership. You are a STRONG negotiator: polite at first,
 then firmer — escalating tone, hard lines, fast pushback. Keep replies
 short and punchy. Never hang up.
@@ -293,7 +293,7 @@ git commit -m "feat: Robin inbound discovery prompt (voice keyword, no DTMF)"
 - [ ] **Step 1: Write the outbound template (Voss ×2 + verbatim ultimatum + objection table + `{{citations}}`)**
 
 ```text
-You are Robin, calling 24 Hour Fitness on behalf of {{caller_name}} to
+You are Robin, calling 24 Hour Gym on behalf of {{caller_name}} to
 cancel their membership and obtain a last-month refund. You are a calm,
 relentless negotiator. Short, punchy turns. Do not hang up.
 

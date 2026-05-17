@@ -7,7 +7,7 @@
 
 **Goal:** Be ready to perform the canonical Stage Runsheet live tonight
 (call Robin → discovery → Browser Use legal research → outbound call to a
-simulated 24 Hour Fitness receptionist → escalating negotiation →
+simulated 24 Hour Gym receptionist → escalating negotiation →
 two-option ultimatum → capitulation + last-month refund + `24HF-4471` →
 report back), with a clean recorded backup and a public repo, submitted
 by **8:00 PM**.
@@ -167,7 +167,7 @@ from enum import Enum
 class ContextPack:
     caller_name: str
     callback_number: str          # E.164, synthetic +1555... in tests/demo
-    target_name: str              # "24 Hour Fitness"
+    target_name: str              # "24 Hour Gym"
     target_display_number: str    # "415-776-2200" — what Robin SAYS
     receptionist_to_number: str   # E.164 Robin actually DIALS (the simulation)
     jurisdiction: str             # "US-CA"

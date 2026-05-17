@@ -42,7 +42,7 @@ law** off the web while you're still on the call, then dials the gym and
 does this:
 
 ```
-ROBIN          24 Hour Fitness, please cancel the membership for my client
+ROBIN          24 Hour Gym, please cancel the membership for my client
                and refund the final month.
 
 RECEPTIONIST   That has to be done in person at your home club. Or I can

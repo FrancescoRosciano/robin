@@ -5,7 +5,7 @@ from robin.prompts import render, PromptRenderError
 
 PACK = ContextPack(
     caller_name="Demo User", callback_number="+15550000001",
-    target_name="24 Hour Fitness", target_display_number="415-776-2200",
+    target_name="24 Hour Gym", target_display_number="415-776-2200",
     receptionist_to_number="+15550000002", jurisdiction="US-CA",
     win_goal="Cancel + last-month refund.", fallback_goal="Cancel only.",
 )
@@ -22,7 +22,7 @@ def test_render_substitutes_all_pack_slots():
            "{{target_display_number}} cb {{callback_number}} "
            "juris {{jurisdiction}} win {{win_goal}} fb {{fallback_goal}}")
     out = render(tpl, PACK)
-    assert "Demo User" in out and "24 Hour Fitness" in out
+    assert "Demo User" in out and "24 Hour Gym" in out
     assert "{{" not in out
 
 

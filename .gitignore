@@ -20,3 +20,7 @@ htmlcov/
 # misc
 .DS_Store
 *.log
+
+# Runtime artifacts (cloudflared tunnel — Plan 05)
+scripts/.tunnel.pid
+scripts/.tunnel.log

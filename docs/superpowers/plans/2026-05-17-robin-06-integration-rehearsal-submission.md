@@ -359,7 +359,7 @@ subscription and refund your last month. Your confirmation number is
 - [ ] **Step 1: Run the canonical path live**
 
 Call Robin: "I want to cancel my gym membership." Answer "24 Hour
-Fitness". Approve the call. Say "two" (callback path first — it is the
+Gym". Approve the call. Say "two" (callback path first — it is the
 primary per SPEC).
 Expected sequence (watch uvicorn log): interim ack → `research_cancellation_law`
 returns OK with the X/Y/Z citations → `place_negotiation_call` returns a
@@ -457,7 +457,7 @@ recording with whatever currently works** (DAY_PLAN freeze rule).
 
 Copy the 7-step Stage Runsheet from the design doc verbatim, plus a
 timed column and this on-screen disclosure line: **"The receptionist is
-an AI simulation. The real 24 Hour Fitness is never called."** Include
+an AI simulation. The real 24 Hour Gym is never called."** Include
 the pre-decided checkpoints (no-key, DTMF=voice, 6 PM freeze) as a
 "if it breaks" footer.
 

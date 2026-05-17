@@ -6,8 +6,8 @@ Google form) → ~9:30 PM closing. Live demo too.
 ## Canonical demo (build & rehearse to this)
 
 The live **Stage Runsheet** in the approved design doc + the "Approved
-demo" section of `CLAUDE.md`: cancel a 24 Hour Fitness membership →
-discovery (gym → "24 Hour Fitness"; Robin "finds" 415-776-2200, asks
+demo" section of `CLAUDE.md`: cancel a 24 Hour Gym membership →
+discovery (gym → "24 Hour Gym"; Robin "finds" 415-776-2200, asks
 permission) → Browser Use pulls X/Y/Z cancellation laws → outbound call
 to a **simulated** receptionist (2nd controlled AgentPhone agent;
 disclosed on screen) → escalating negotiation → two-option ultimatum →

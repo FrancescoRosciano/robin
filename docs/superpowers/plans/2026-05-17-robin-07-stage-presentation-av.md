@@ -268,7 +268,7 @@ _STAGE_HTML = """\
 <body>
 <div id="banner">
   AI SIMULATION &mdash; the receptionist is an AI.&nbsp;
-  The real 24 Hour Fitness is never called.
+  The real 24 Hour Gym is never called.
 </div>
 <div id="transcript"></div>
 <script>
@@ -387,7 +387,7 @@ asyncio.run(main())
 Run: Open `http://localhost:8000/stage` in a browser (or the projector tab).
 Run: `python3 scripts/test_stage_projector.py`
 Expected:
-- The red banner "AI SIMULATION — the receptionist is an AI. The real 24 Hour Fitness is never called." is permanently visible at the top.
+- The red banner "AI SIMULATION — the receptionist is an AI. The real 24 Hour Gym is never called." is permanently visible at the top.
 - Four transcript turns render in sequence with auto-scroll: user turn (green border, label "Receptionist"), agent turns (blue border, label "Robin").
 - No console errors in the browser DevTools.
 
@@ -430,7 +430,7 @@ transcript page when the first turn renders.
 **AI SIMULATION**
 
 The receptionist in this call is an AI agent.
-The real 24 Hour Fitness is never called.
+The real 24 Hour Gym is never called.
 
 ---
 
@@ -476,7 +476,7 @@ The real 24 Hour Fitness is never called.
 <div class="slide">
   <h1>AI SIMULATION</h1>
   <p>The receptionist in this call is an AI agent.<br>
-     The real 24 Hour Fitness is never called.</p>
+     The real 24 Hour Gym is never called.</p>
   <p class="pitch">"Phone your agent; it does the call you hate."</p>
   <p class="product">Robin &mdash; AgentPhone &times; Browser Use &mdash; YC Hackathon 2026-05-17</p>
 </div>
@@ -530,7 +530,7 @@ This is the pre-decided choreography document. The choreography decision is expl
 | Runsheet Step | What the room sees on the projector |
 |---|---|
 | **1.** Presenter calls Robin live | `/stage` tab open, empty (no turns yet) — banner visible |
-| **2.** Robin discovery: "which gym?" / "24 Hour Fitness" | `/stage` tab — still empty; shows Robin is live |
+| **2.** Robin discovery: "which gym?" / "24 Hour Gym" | `/stage` tab — still empty; shows Robin is live |
 | **3.** Robin: "found 415-776-2200 — want me to call?" | **Switch to `disclosure.html` tab** — full-screen "AI SIMULATION" slide |
 | **4.** Robin dials; negotiation begins | **Switch back to `/stage` tab** the moment first turn renders; auto-scroll does the rest |
 | **5.** Escalating exchanges / ultimatum | `/stage` — live transcript scrolling; both Robin and Receptionist turns labeled |
@@ -591,7 +591,7 @@ problem. The CONTINGENCY is a safety net, not the plan.
 - [ ] `docs/stage/disclosure.html` open in second tab before walking on stage
 - [ ] Disclosure slide visible for ≥ 3 seconds before switching to `/stage`
 - [ ] `/stage` disclosure banner ("AI SIMULATION — the receptionist is an AI.
-      The real 24 Hour Fitness is never called.") visible the entire time the
+      The real 24 Hour Gym is never called.") visible the entire time the
       outbound call is in progress
 - [ ] "AI simulation" spoken or on-screen at least once during the live demo
 

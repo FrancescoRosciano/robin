@@ -7,7 +7,7 @@ from robin.models import ContextPack, Citation, Outcome, OutcomeStatus
 def test_contextpack_is_frozen():
     p = ContextPack(
         caller_name="Demo User", callback_number="+15550000001",
-        target_name="24 Hour Fitness", target_display_number="415-776-2200",
+        target_name="24 Hour Gym", target_display_number="415-776-2200",
         receptionist_to_number="+15550000002", jurisdiction="US-CA",
         win_goal="cancel + refund", fallback_goal="cancel only",
     )

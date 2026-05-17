@@ -778,7 +778,7 @@ from tests.fakes import FakeLLM
 
 PACK = ContextPack(
     caller_name="Demo User", callback_number="+15550000001",
-    target_name="24 Hour Fitness", target_display_number="415-776-2200",
+    target_name="24 Hour Gym", target_display_number="415-776-2200",
     receptionist_to_number="+15550000002", jurisdiction="US-CA",
     win_goal="cancel + refund", fallback_goal="cancel",
 )
@@ -850,17 +850,17 @@ async def test_history_is_included_in_messages():
             captured["messages"] = messages
 
             class _M:
-                content = [{"type": "text", "text": "24 Hour Fitness, got it."}]
+                content = [{"type": "text", "text": "24 Hour Gym, got it."}]
                 stop_reason = "end_turn"
             return _M()
 
     hist = [{"direction": "inbound", "content": "cancel my gym"},
             {"direction": "outbound", "content": "Which gym?"}]
-    out = [c async for c in run_turn("24 Hour Fitness", hist, system="S",
+    out = [c async for c in run_turn("24 Hour Gym", hist, system="S",
                                      llm=_LLM(), tool_impls={})]
     roles = [m["role"] for m in captured["messages"]]
     assert roles == ["user", "assistant", "user"]
-    assert captured["messages"][-1]["content"] == "24 Hour Fitness"
+    assert captured["messages"][-1]["content"] == "24 Hour Gym"
 
 
 async def test_keepalive_interim_emitted_before_tool_batch():
@@ -919,7 +919,7 @@ async def run_turn(transcript: str, history: list, *, system: str, llm,
     yield {"text": _INTERIM_ACK, "interim": True}
 
     # Build prior-turn memory from AgentPhone's recentHistory so multi-turn
-    # discovery ("which gym?" -> "24 Hour Fitness" -> "call it?" -> "yes")
+    # discovery ("which gym?" -> "24 Hour Gym" -> "call it?" -> "yes")
     # actually remembers. inbound = caller (user); outbound = Robin (asst).
     messages = []
     for h in history:

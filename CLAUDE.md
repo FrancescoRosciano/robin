@@ -21,13 +21,13 @@ Pitch unchanged ("phone your agent; it does the call you hate").
 
 1. Presenter calls Robin live on stage: "I want to cancel my gym
    membership."
-2. Robin discovery: asks which gym → "24 Hour Fitness". Robin says it's
+2. Robin discovery: asks which gym → "24 Hour Gym". Robin says it's
    looking it up, "found their line, 415-776-2200 — want me to call and
    cancel for you?" → presenter says yes. Browser Use really runs here:
    the number lookup is set-dressing; the **real payload is researching
    the cancellation laws** Robin will cite.
 3. Robin dials out; the stage hears Robin vs a **simulated 24 Hour
-   Fitness receptionist** (a 2nd controlled AgentPhone agent). Disclose
+   Gym receptionist** (a 2nd controlled AgentPhone agent). Disclose
    on-screen that the receptionist is an AI simulation.
 4. Both negotiate hard — escalating tone, hard lines, fast exchanges.
    Receptionist obstructs (in person / 50% off / certified letter /

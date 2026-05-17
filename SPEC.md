@@ -5,14 +5,14 @@
 > **Canonical demo = the live Stage Runsheet in the approved design doc**
 > (`~/.gstack/projects/robin/francescorosciano-unknown-design-20260517-112530.md`)
 > and the "Approved demo" section of `CLAUDE.md`. Build to that: cancel a
-> 24 Hour Fitness membership — discovery → Browser Use legal research →
+> 24 Hour Gym membership — discovery → Browser Use legal research →
 > outbound call to a *simulated* receptionist → escalating negotiation →
 > two-option ultimatum → capitulation + last-month refund + `24HF-4471`.
 
 Call Robin. It runs a real **discovery** dialogue (brainstorm → plan →
 execute): asks what you need, probes the goal + constraints + what a good
 outcome is, until unambiguous (for the demo: which gym → "24 Hour
-Fitness"; Robin "finds the number" 415-776-2200 and asks permission to
+Gym"; Robin "finds the number" 415-776-2200 and asks permission to
 call). States the plan back. Then dials out on your behalf. Caller
 chooses involvement by keypad:
 
@@ -79,14 +79,14 @@ demo's edge and hits the Browser Use sponsor track. API + open items:
 ## Acceptance (demo)
 
 - Live on stage: presenter calls Robin → discovery (gym → "24 Hour
-  Fitness"; Robin "finds" 415-776-2200, asks permission) → Browser Use
+  Gym"; Robin "finds" 415-776-2200, asks permission) → Browser Use
   returns the X/Y/Z cancellation laws → Robin dials the **simulated**
   receptionist → escalating negotiation → two-option ultimatum (5★ vs.
   boss's-boss + misleading-offer complaint + compensation + reviews) →
   receptionist capitulates: cancellation **+ last-month refund** +
   `24HF-4471` → Robin reports back → recording in the dashboard. Multi-
   minute, no operator intervention. Disclose on screen: receptionist =
-  AI simulation; real 24 Hour Fitness is never called.
+  AI simulation; real 24 Hour Gym is never called.
 - A clean recorded backup run is mandatory (the Google-form video + the
   safety net) — captured before going on stage.
 - One-sentence pitch: *phone your agent; it does the call you hate.*

@@ -9,7 +9,7 @@
 
 **Goal:** Stand up the live telephony substrate: Robin's AgentPhone agent
 + number + webhook pointed at the public tunnel, **and** a second
-"simulated 24 Hour Fitness receptionist" agent loaded with Plan 02's
+"simulated 24 Hour Gym receptionist" agent loaded with Plan 02's
 receptionist prompt — printing every ID needed for `.env`.
 
 **Architecture:** One idempotent script `scripts/setup_agentphone.py`
@@ -268,7 +268,7 @@ Expected: `.env` then `IGNORED` (must NOT be trackable).
 - [ ] **Step 1: Call the receptionist number by phone**
 
 Dial the receptionist E.164 (`RECEPTIONIST_TO_NUMBER`) from any phone.
-Expected: it answers in-character as the 24 Hour Fitness receptionist and
+Expected: it answers in-character as the 24 Hour Gym receptionist and
 opens with block #1 ("you can only cancel in person…").
 
 - [ ] **Step 2: Decision gate (pre-decided — do not deliberate live)**
