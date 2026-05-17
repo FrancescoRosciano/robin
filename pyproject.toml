@@ -1,0 +1,22 @@
+[project]
+name = "robin"
+version = "0.1.0"
+description = "Robin — voice chief-of-staff (AgentPhone + Browser Use)"
+requires-python = ">=3.11"
+dependencies = []
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q --cov=robin --cov-report=term-missing"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
