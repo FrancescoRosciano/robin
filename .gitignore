@@ -1,6 +1,7 @@
 # Secrets / PII — NEVER commit
 .env
 .env.*
+.env.example
 !.env.example
 *.local.json
 context_pack.local.json
