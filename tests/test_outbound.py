@@ -1,5 +1,7 @@
 import asyncio
 
+import pytest
+
 from robin.models import OutcomeStatus
 from robin.outbound import CallRegistry, capture_and_classify, make_deliver_result, make_place_negotiation_call
 from tests.fakes import FakeAgentPhoneClient
@@ -87,4 +89,14 @@ async def test_deliver_result_stay_on_does_not_place_call():
     res = await tool(channel="stay_on", summary="Done.",
                      confirmation="24HF-4471")
     assert res["delivered"] is True
+    assert client.placed == []
+
+
+async def test_deliver_result_unknown_channel_raises():
+    client = FakeAgentPhoneClient([], call_id="x")
+    tool = make_deliver_result(
+        client=client, agent_id="a", from_number_id="n",
+        callback_number="+15550000001")
+    with pytest.raises(ValueError):
+        await tool(channel="bogus", summary="Done.", confirmation=None)
     assert client.placed == []

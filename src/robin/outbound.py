@@ -97,6 +97,8 @@ def make_deliver_result(*, client, agent_id: str, from_number_id: str,
                 initial_greeting="Hi, it's Robin with an update.",
                 system_prompt=f"Tell the caller, then stop: {spoken}",
                 from_number_id=from_number_id)
+        elif channel != "stay_on":
+            raise ValueError(f"deliver_result: unrecognised channel {channel!r}")
         return {"delivered": True}
 
     return deliver_result
