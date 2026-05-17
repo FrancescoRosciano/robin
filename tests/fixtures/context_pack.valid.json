@@ -1,0 +1,10 @@
+{
+  "caller_name": "Demo User",
+  "callback_number": "+15550000001",
+  "target_name": "24 Hour Fitness",
+  "target_display_number": "415-776-2200",
+  "receptionist_to_number": "+15550000002",
+  "jurisdiction": "US-CA",
+  "win_goal": "Cancel the membership and obtain a last-month refund.",
+  "fallback_goal": "Cancel the membership; refund optional."
+}
