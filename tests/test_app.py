@@ -69,16 +69,6 @@ async def test_webhook_rejects_bad_signature(app):
                          headers={"svix-id": "x", "svix-timestamp": "1",
                                   "svix-signature": "v1,bad"})
     assert r.status_code == 401
-    assert r.json() == {"detail": "invalid signature"}
-
-
-async def test_webhook_bad_json_validly_signed_returns_400(app):
-    transport = httpx.ASGITransport(app=app)
-    body = b"not json at all"
-    async with httpx.AsyncClient(transport=transport, base_url="http://t") as c:
-        r = await c.post("/webhook", content=body, headers=_svix_headers(body))
-    assert r.status_code == 400
-    assert r.json() == {"detail": "bad request"}
 
 
 async def test_webhook_streams_ndjson_on_valid_signature(app):

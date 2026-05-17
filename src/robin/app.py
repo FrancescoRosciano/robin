@@ -5,10 +5,10 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 
 from robin.loop import run_turn
-from robin.signature import MalformedJSONError, SignatureError, verify_signature
+from robin.signature import SignatureError, verify_signature
 
 
-def build_app(*, secret: str, law_html_path: str, llm: object,
+def build_app(*, secret: str, law_html_path: str, llm,
               tool_impls: dict, system_prompt: str = "You are Robin.") -> FastAPI:
     app = FastAPI()
 
@@ -28,8 +28,6 @@ def build_app(*, secret: str, law_html_path: str, llm: object,
         except SignatureError:
             return JSONResponse({"detail": "invalid signature"},
                                 status_code=401)
-        except MalformedJSONError:
-            return JSONResponse({"detail": "bad request"}, status_code=400)
         payload = json.loads(raw)
         transcript = payload.get("data", {}).get("transcript", "")
         history = payload.get("recentHistory", [])
