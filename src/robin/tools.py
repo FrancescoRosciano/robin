@@ -4,6 +4,18 @@ import os
 import re
 
 RESEARCH_TIMEOUT_S = 60
+_MAX_ARG_LEN = 24
+
+
+def _clean_arg(s: str) -> str:
+    """Sanitize an untrusted string before interpolating into a Browser Use task.
+
+    Collapses newlines and C0 control characters (which could be used to inject
+    extra instructions into the task string), strips surrounding whitespace, and
+    truncates to ``_MAX_ARG_LEN`` characters.
+    """
+    cleaned = re.sub(r"[\x00-\x1f\x7f]", " ", s)
+    return cleaned.strip()[:_MAX_ARG_LEN]
 
 TOOL_SCHEMAS = [
     {
@@ -79,16 +91,17 @@ def _parse_law_html(html: str) -> list[dict]:
 async def research_cancellation_law(jurisdiction: str, *, browser,
                                     law_url: str,
                                     law_html_path: str | None = None) -> dict:
+    safe_jurisdiction = _clean_arg(jurisdiction)
     task = (
         f"Go to {law_url}. It lists cancellation-law citations for "
-        f"jurisdiction {jurisdiction}. For each citation block return one "
+        f"jurisdiction {safe_jurisdiction}. For each citation block return one "
         f"line: 'citation: <h2 text> | quote: <operative sentence> | "
         f"source: <source url>'. Return only those lines."
     )
     try:
         result = await asyncio.wait_for(browser.run(task),
                                         timeout=RESEARCH_TIMEOUT_S)
-    except (asyncio.TimeoutError, TimeoutError, Exception) as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
         # Browser Use failed/timed out. Deterministic safety net: parse the
         # SELF-HOSTED, pre-vetted fixture (identical statute text → integrity
         # preserved). Live-stage net only — never the recorded-backup path.
