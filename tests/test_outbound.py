@@ -161,3 +161,50 @@ async def test_on_turn_error_is_isolated_classification_proceeds():
     assert o is not None
     assert o.status == OutcomeStatus.DONE
     assert o.confirmation == "24HF-4471"
+
+
+# ---------------------------------------------------------------------------
+# Plan 04 regression / characterization tests
+# ---------------------------------------------------------------------------
+
+async def test_capture_blocked_when_stream_raises_after_partial_turns():
+    """Stream yields some turns, THEN dies mid-iteration: terminal BLOCKED
+    is stored (distinct from the raise-before-first-turn case)."""
+    from robin.agentphone_client import TranscriptTurn
+
+    class _MidStreamBoom:
+        async def stream_transcript(self, call_id):
+            yield TranscriptTurn(role="user", content="I need to cancel.",
+                                 created_at="t1")
+            yield TranscriptTurn(role="agent", content="No.", created_at="t2")
+            raise RuntimeError("stream dropped mid-call")
+
+    reg = CallRegistry()
+    await capture_and_classify("cmid", client=_MidStreamBoom(), registry=reg)
+    o = reg.get("cmid")
+    assert o is not None
+    assert o.status == OutcomeStatus.BLOCKED
+    assert "stream error" in o.detail
+
+
+async def test_place_negotiation_call_logs_and_retains_failing_task(caplog):
+    """Proves the spawned task is retained (the done-callback fires) AND
+    _on_done logs the exception when the capture task raises."""
+    import logging
+
+    class _RaisingRegistry(CallRegistry):
+        def set(self, call_id, outcome):
+            raise RuntimeError("registry exploded")
+
+    reg = _RaisingRegistry()
+    client = FakeAgentPhoneClient(DONE_TURNS, call_id="cfail")
+    tool = make_place_negotiation_call(
+        client=client, registry=reg, agent_id="agt",
+        from_number_id="num", receptionist_to_number="+15550000002",
+        outbound_system_prompt="SYS")
+    with caplog.at_level(logging.ERROR, logger="robin.outbound"):
+        res = await tool(phone="415-776-2200", member_name="Demo",
+                         citations=[])
+        assert res["call_id"] == "cfail"
+        await asyncio.sleep(0.05)  # let the retained task + done-callback run
+    assert "capture task failed" in caplog.text
