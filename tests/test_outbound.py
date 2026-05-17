@@ -144,3 +144,19 @@ async def test_place_negotiation_call_forwards_on_turn():
                            "source_url": "u"}])
     await asyncio.sleep(0.05)
     assert len(collected) == len(DONE_TURNS)
+
+
+async def test_on_turn_error_stores_blocked_not_hang():
+    """A raising on_turn must not leave the registry None — it degrades
+    to a stored BLOCKED outcome (demo-safety invariant)."""
+    reg = CallRegistry()
+    client = FakeAgentPhoneClient(DONE_TURNS, call_id="c_obs_err")
+
+    async def boom(turn):
+        raise RuntimeError("projector exploded")
+
+    await capture_and_classify("c_obs_err", client=client, registry=reg,
+                               on_turn=boom)
+    o = reg.get("c_obs_err")
+    assert o is not None
+    assert o.status == OutcomeStatus.BLOCKED
