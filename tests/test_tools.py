@@ -1,4 +1,4 @@
-from robin.tools import TOOL_SCHEMAS, research_cancellation_law
+from robin.tools import TOOL_SCHEMAS, _clean_arg, research_cancellation_law
 from tests.fakes import FakeBrowser
 
 LAW_OUTPUT = (
@@ -47,6 +47,35 @@ async def test_research_falls_back_to_local_fixture(tmp_path):
     assert res["status"] == "OK"
     assert res["citations"][0]["citation"] == "FTC X"
     assert res.get("source") == "local-fixture-fallback"
+
+
+def test_clean_arg_strips_control_chars():
+    """_clean_arg must neutralize C0 control chars independent of truncation.
+
+    All inputs here are well under _MAX_ARG_LEN (24 chars) so any removed
+    characters are removed by the re.sub step, not by the slice.  The test
+    therefore fails immediately if the re.sub call is ever removed.
+    """
+    # Tab → replaced with a space
+    result_tab = _clean_arg("US\tCA")
+    assert "\t" not in result_tab
+    assert result_tab == "US CA"
+
+    # Newline → replaced with a space
+    result_lf = _clean_arg("US\nCA")
+    assert "\n" not in result_lf
+
+    # Carriage-return + newline → both replaced
+    result_crlf = _clean_arg("US\r\nCA")
+    assert "\r" not in result_crlf
+    assert "\n" not in result_crlf
+
+    # Surrounding whitespace is stripped after the substitution
+    assert _clean_arg("  US-CA  ") == "US-CA"
+
+    # Inputs longer than 24 chars are truncated to exactly 24 chars
+    long_input = "A" * 30
+    assert len(_clean_arg(long_input)) == 24
 
 
 async def test_jurisdiction_is_sanitized_into_task():
