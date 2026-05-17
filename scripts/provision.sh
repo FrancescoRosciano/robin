@@ -25,7 +25,9 @@ TUNNEL_PID="$REPO_ROOT/scripts/.tunnel.pid"
 PY="${PYTHON_BIN:-python3}"
 LOCAL_PORT=8000
 FORCE_NEW_TUNNEL=0
+SHOW_NUMBERS=0
 [ "${1:-}" = "--new-tunnel" ] && FORCE_NEW_TUNNEL=1
+[ "${1:-}" = "--numbers" ] && SHOW_NUMBERS=1
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
@@ -36,6 +38,11 @@ set -a
 . "$ENV_FILE"
 set +a
 [ -n "${AGENTPHONE_API_KEY:-}" ] || die "AGENTPHONE_API_KEY not set in .env."
+
+# --numbers: read-only — just print the dialable +E.164 numbers, then stop.
+if [ "$SHOW_NUMBERS" -eq 1 ]; then
+  exec "$PY" scripts/show_numbers.py
+fi
 
 # --- upsert KEY=VALUE into .env, preserving the rest, chmod 600 ---
 upsert_env() {
@@ -53,7 +60,8 @@ tunnel_alive() {
 }
 
 scrape_url() {
-  grep -oE 'https://[A-Za-z0-9.-]+\.trycloudflare\.com' "$TUNNEL_LOG" 2>/dev/null | head -1
+  # `|| true` keeps a no-match grep from tripping set -e / pipefail.
+  { grep -oE 'https://[A-Za-z0-9.-]+\.trycloudflare\.com' "$TUNNEL_LOG" 2>/dev/null || true; } | head -1
 }
 
 if [ "$FORCE_NEW_TUNNEL" -eq 1 ] && tunnel_alive; then
@@ -63,7 +71,7 @@ if [ "$FORCE_NEW_TUNNEL" -eq 1 ] && tunnel_alive; then
 fi
 
 if tunnel_alive && [ "$FORCE_NEW_TUNNEL" -eq 0 ]; then
-  PUBLIC_BASE_URL="$(scrape_url)"
+  PUBLIC_BASE_URL="$(scrape_url)" || true
   [ -n "$PUBLIC_BASE_URL" ] || die "Tunnel process alive but no URL in $TUNNEL_LOG — inspect it, do not blindly restart."
   echo ">> Reusing running tunnel (NOT restarted): $PUBLIC_BASE_URL"
 else
@@ -73,7 +81,8 @@ else
   echo $! > "$TUNNEL_PID"
   PUBLIC_BASE_URL=""
   for _ in $(seq 1 40); do
-    PUBLIC_BASE_URL="$(scrape_url)"; [ -n "$PUBLIC_BASE_URL" ] && break
+    PUBLIC_BASE_URL="$(scrape_url)" || true
+    if [ -n "$PUBLIC_BASE_URL" ]; then break; fi
     sleep 1
   done
   [ -n "$PUBLIC_BASE_URL" ] || die "Tunnel URL not seen within 40s — check $TUNNEL_LOG."

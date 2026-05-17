@@ -5,7 +5,9 @@ per agentphone/agentphone-notes.md. Prints the IDs to paste into .env.
 Re-running with *_AGENT_ID / *_NUMBER_ID already set skips creation.
 """
 import os
+import random
 import sys
+import time
 
 import httpx
 
@@ -13,6 +15,14 @@ BASE = os.environ.get("AGENTPHONE_BASE_URL", "https://api.agentphone.ai/v1")
 KEY = os.environ.get("AGENTPHONE_API_KEY")
 PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
 RECEPTIONIST_PROMPT_PATH = "src/robin/fixtures/prompts/receptionist.txt"
+# Live tuning without code edits. Authenticated create-agent against the
+# hackathon API exceeds 30s; provisioning is one-shot so a long read
+# timeout is fine. Override via env if the API is degraded further.
+HTTP_TIMEOUT = float(os.environ.get("AGENTPHONE_HTTP_TIMEOUT", "90"))
+MAX_RETRIES = int(os.environ.get("AGENTPHONE_MAX_RETRIES", "5"))
+# Gateway errors are transient (hackathon API overload). Other 5xx/4xx
+# (500, 401, 400) are config/bug — surface them immediately, don't retry.
+RETRY_STATUS = {502, 503, 504}
 
 
 def _client() -> httpx.Client:
@@ -20,13 +30,37 @@ def _client() -> httpx.Client:
         sys.exit("AGENTPHONE_API_KEY not set — export it before running.")
     return httpx.Client(base_url=BASE,
                         headers={"Authorization": f"Bearer {KEY}"},
-                        timeout=30.0)
+                        timeout=HTTP_TIMEOUT)
+
+
+def _backoff_seconds(attempt: int) -> float:
+    return min(2 ** attempt, 30) + random.uniform(0, 1.5)
 
 
 def _post(c: httpx.Client, path: str, body: dict) -> dict:
-    r = c.post(path, json=body)
-    r.raise_for_status()
-    return r.json()
+    # Retry only transient failures (network timeout / gateway 5xx). A
+    # 4xx (401) or a 500 is a hard config/bug error — fail fast.
+    last_exc = None
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            r = c.post(path, json=body)
+        except httpx.TimeoutException as exc:
+            last_exc = exc
+            print(f"  timeout on POST {path} (attempt {attempt}/{MAX_RETRIES})",
+                  file=sys.stderr)
+        else:
+            if r.status_code in RETRY_STATUS:
+                last_exc = httpx.HTTPStatusError(
+                    f"{r.status_code} from {path}", request=r.request,
+                    response=r)
+                print(f"  {r.status_code} on POST {path} "
+                      f"(attempt {attempt}/{MAX_RETRIES})", file=sys.stderr)
+            else:
+                r.raise_for_status()
+                return r.json()
+        if attempt < MAX_RETRIES:
+            time.sleep(_backoff_seconds(attempt))
+    raise last_exc  # type: ignore[misc]
 
 
 def _create_agent(c, name, system_prompt=None):
