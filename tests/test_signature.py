@@ -91,3 +91,51 @@ def test_signature_error_chains_cause() -> None:
     with pytest.raises(SignatureError) as exc_info:
         verify_signature(_BODY, headers, TEST_SECRET)
     assert exc_info.value.__cause__ is not None
+
+
+# ---------------------------------------------------------------------------
+# 5. Stale timestamp is rejected (replay-window protection)
+# ---------------------------------------------------------------------------
+
+def test_stale_timestamp_raises_signature_error() -> None:
+    """A cryptographically valid signature with a stale timestamp is rejected.
+
+    Svix enforces a ±5-minute (300 s) freshness window by default.
+    A timestamp ~400 s in the past is outside that window and must be
+    refused even though the HMAC itself is correct.
+    """
+    from datetime import timedelta
+
+    stale_ts = datetime.now(timezone.utc) - timedelta(seconds=400)
+    wh = Webhook(TEST_SECRET)
+    sig = wh.sign(_MSG_ID, stale_ts, _BODY.decode())
+    headers: dict[str, str] = {
+        "svix-id": _MSG_ID,
+        "svix-timestamp": str(int(stale_ts.timestamp())),
+        "svix-signature": sig,
+    }
+    with pytest.raises(SignatureError):
+        verify_signature(_BODY, headers, TEST_SECRET)
+
+
+# ---------------------------------------------------------------------------
+# 6. Non-UTF-8 body raises SignatureError (UnicodeDecodeError branch coverage)
+# ---------------------------------------------------------------------------
+
+def test_non_utf8_body_raises_signature_error() -> None:
+    """A body that is not valid UTF-8 must raise SignatureError.
+
+    This exercises the except UnicodeDecodeError branch in verify_signature.
+    Headers are plausibly shaped (correct key names, string values) — the
+    body decode failure fires before any HMAC comparison.
+    """
+    bad_body = b"\xff\xfe\xff"  # invalid UTF-8 sequence
+    # Build headers that look structurally valid (Svix will attempt to decode
+    # the body before the HMAC check and hit UnicodeDecodeError).
+    fake_headers: dict[str, str] = {
+        "svix-id": _MSG_ID,
+        "svix-timestamp": str(int(datetime.now(timezone.utc).timestamp())),
+        "svix-signature": "v1,AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    }
+    with pytest.raises(SignatureError):
+        verify_signature(bad_body, fake_headers, TEST_SECRET)
