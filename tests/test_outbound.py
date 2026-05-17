@@ -146,9 +146,9 @@ async def test_place_negotiation_call_forwards_on_turn():
     assert len(collected) == len(DONE_TURNS)
 
 
-async def test_on_turn_error_stores_blocked_not_hang():
-    """A raising on_turn must not leave the registry None — it degrades
-    to a stored BLOCKED outcome (demo-safety invariant)."""
+async def test_on_turn_error_is_isolated_classification_proceeds():
+    """A raising on_turn observer is logged & ignored — it must NOT
+    corrupt the outcome: the full transcript still classifies DONE."""
     reg = CallRegistry()
     client = FakeAgentPhoneClient(DONE_TURNS, call_id="c_obs_err")
 
@@ -159,4 +159,5 @@ async def test_on_turn_error_stores_blocked_not_hang():
                                on_turn=boom)
     o = reg.get("c_obs_err")
     assert o is not None
-    assert o.status == OutcomeStatus.BLOCKED
+    assert o.status == OutcomeStatus.DONE
+    assert o.confirmation == "24HF-4471"

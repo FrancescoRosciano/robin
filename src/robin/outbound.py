@@ -40,7 +40,10 @@ async def capture_and_classify(call_id: str, *, client,
         async for turn in client.stream_transcript(call_id):
             lines.append(f"{turn.role}: {turn.content}")
             if on_turn is not None:
-                await on_turn(turn)
+                try:
+                    await on_turn(turn)
+                except Exception as exc:  # noqa: BLE001 - observer is best-effort
+                    _log.warning("on_turn observer raised (ignored): %r", exc)
     except asyncio.CancelledError:
         raise
     except Exception as exc:  # noqa: BLE001 - stream is an untrusted boundary
