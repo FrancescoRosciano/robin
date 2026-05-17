@@ -1,0 +1,63 @@
+"""Composition root. Builds real adapters from validated settings and
+exposes `app` for uvicorn. Fails fast if any secret is missing."""
+import os
+
+from browser_use_sdk.v3 import AsyncBrowserUse
+
+from robin.agentphone_client import AgentPhoneClient
+from robin.anthropic_adapter import AnthropicLLM
+from robin.app import build_app
+from robin.config import load_settings
+from robin.context_pack import load_context_pack
+from robin.models import Citation
+from robin.outbound import (CallRegistry, make_deliver_result,
+                            make_place_negotiation_call)
+from robin.prompts import (render_inbound_system_prompt,
+                           render_outbound_system_prompt)
+
+CONTEXT_PACK_PATH = os.environ.get("CONTEXT_PACK_PATH", "context_pack.json")
+LAW_HTML_PATH = "src/robin/fixtures/law.html"
+
+_settings = load_settings()                       # fail-fast on missing env
+_pack = load_context_pack(CONTEXT_PACK_PATH)      # fail-fast on placeholders
+
+_ap = AgentPhoneClient(api_key=_settings.agentphone_api_key)
+_llm = AnthropicLLM(api_key=_settings.anthropic_api_key,
+                    model="claude-sonnet-4-6")
+_browser = AsyncBrowserUse()                      # reads BROWSER_USE_API_KEY
+_registry = CallRegistry()
+
+
+async def _research(jurisdiction: str) -> dict:
+    from robin.tools import research_cancellation_law
+    return await research_cancellation_law(
+        jurisdiction, browser=_browser,
+        law_url=f"{_settings.public_base_url}/fixture/law.html",
+        law_html_path=LAW_HTML_PATH)
+
+
+async def _place(phone: str, member_name: str, citations: list[dict]) -> dict:
+    cites = [Citation(c["citation"], c["operative_quote"],
+                       c.get("source_url", "")) for c in citations]
+    impl = make_place_negotiation_call(
+        client=_ap, registry=_registry, agent_id=_settings.robin_agent_id,
+        from_number_id=_settings.from_number_id,
+        receptionist_to_number=_settings.receptionist_to_number,
+        outbound_system_prompt=render_outbound_system_prompt(_pack, cites))
+    return await impl(phone=phone, member_name=member_name,
+                      citations=citations)
+
+
+_tool_impls = {
+    "research_cancellation_law": _research,
+    "place_negotiation_call": _place,
+    "deliver_result": make_deliver_result(
+        client=_ap, agent_id=_settings.robin_agent_id,
+        from_number_id=_settings.from_number_id,
+        callback_number=_pack.callback_number),
+}
+
+app = build_app(
+    secret=_settings.agentphone_webhook_secret,
+    law_html_path=LAW_HTML_PATH, llm=_llm, tool_impls=_tool_impls,
+    system_prompt=render_inbound_system_prompt(_pack))
