@@ -16,6 +16,7 @@ where = ["src"]
 pythonpath = ["src"]
 testpaths = ["tests"]
 addopts = "-q --cov=robin --cov-report=term-missing"
+asyncio_mode = "auto"
 
 [tool.ruff]
 line-length = 100
