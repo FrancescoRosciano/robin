@@ -288,7 +288,36 @@ async def test_hook_returns_before_send_completes(monkeypatch):
 
 
 async def test_inbox_created_once_across_two_calls(monkeypatch):
-    assert False, "not implemented"
+    """_ensure_inbox must call inboxes.create exactly once even for two hook calls."""
+    monkeypatch.setenv("ROBIN_AGENTMAIL_ENABLED", "1")
+    monkeypatch.setenv("AGENTMAIL_API_KEY", "dummy-key")
+
+    import robin.integrations.agentmail as am_mod
+    from tests.fakes import FakeAgentMailClient
+
+    # Reset singletons so _ensure_inbox actually creates
+    monkeypatch.setattr(am_mod, "_client", None)
+    monkeypatch.setattr(am_mod, "_inbox_id", None)
+    monkeypatch.setattr(am_mod, "_inbox_email", None)
+    monkeypatch.setattr(am_mod, "_inbox_lock", None)
+
+    fake = FakeAgentMailClient()
+    # Monkeypatch AsyncAgentMail constructor so _get_or_create_client returns the fake
+    monkeypatch.setattr("agentmail.AsyncAgentMail", lambda **kw: fake)
+
+    hook = am_mod.make_email_outcome_hook(_pack("test@example.com"))
+
+    # Two hook calls
+    await hook(call_id="call-009", payload=_DONE_PAYLOAD)
+    await asyncio.gather(*(asyncio.all_tasks() - {asyncio.current_task()}),
+                         return_exceptions=True)
+    await hook(call_id="call-010", payload=_DONE_PAYLOAD)
+    await asyncio.gather(*(asyncio.all_tasks() - {asyncio.current_task()}),
+                         return_exceptions=True)
+
+    assert len(fake.created) == 1, (
+        f"Expected inbox.create called once, got {len(fake.created)}"
+    )
 
 
 def test_context_pack_accepts_email():
