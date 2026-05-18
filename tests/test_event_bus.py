@@ -56,3 +56,36 @@ async def test_publish_event_typed_payload_round_trip():
     await bus.publish_event("citation", {"citations": citations})
     item = q.get_nowait()
     assert item == {"event": "citation", "data": {"citations": citations}}
+
+
+@pytest.mark.asyncio
+async def test_unsubscribe_is_idempotent():
+    """Unsubscribing the same queue twice must not raise."""
+    bus = EventBus()
+    q = bus.subscribe()
+    bus.unsubscribe(q)
+    bus.unsubscribe(q)  # second call hits the ValueError guard — must be a no-op
+    await bus.publish_event("citation", {"citations": []})
+    assert q.empty()
+
+
+@pytest.mark.asyncio
+async def test_subscribe_preloads_replay_buffer_and_respects_queue_bound():
+    """A late subscriber receives buffered events; pre-load stops at the bound.
+
+    Publish 3 events, then subscribe with maxsize=2. The replay pre-load
+    must fill exactly 2 (oldest-first) and stop on QueueFull — the third
+    buffered event is dropped, never raised.
+    """
+    bus = EventBus(maxsize=2)
+    await bus.publish_event("citation", {"n": 1})
+    await bus.publish_event("citation", {"n": 2})
+    await bus.publish_event("citation", {"n": 3})
+
+    q = bus.subscribe()  # created AFTER all three publishes
+    assert q.qsize() == 2  # bound respected; pre-load broke on full
+    first = q.get_nowait()
+    second = q.get_nowait()
+    assert first == {"event": "citation", "data": {"n": 1}}
+    assert second == {"event": "citation", "data": {"n": 2}}
+    assert q.empty()
