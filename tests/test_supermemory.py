@@ -68,3 +68,27 @@ async def test_enricher_returns_empty_string_when_no_results(monkeypatch):
     client = FakeSupermemoryClient(items=[])
     enricher = make_recall_enricher(client, "p14155550000")
     assert await enricher(call_id="call_xyz") == ""
+
+
+async def test_enricher_returns_empty_string_on_timeout(monkeypatch):
+    """asyncio.TimeoutError from fetch → return "" (never raise)."""
+    import asyncio
+    monkeypatch.setenv("ROBIN_MEMORY_ENABLED", "1")
+    from robin.integrations.supermemory import make_recall_enricher
+    from tests.fakes import FakeSupermemoryClient
+    client = FakeSupermemoryClient(items=[], raise_exc=asyncio.TimeoutError())
+    enricher = make_recall_enricher(client, "p15550009999")
+    result = await enricher(call_id="call_timeout")
+    assert result == ""
+
+
+async def test_enricher_returns_empty_string_on_api_error(monkeypatch):
+    """Any exception from the SDK → return "" (never raise)."""
+    monkeypatch.setenv("ROBIN_MEMORY_ENABLED", "1")
+    from robin.integrations.supermemory import make_recall_enricher
+    from tests.fakes import FakeSupermemoryClient
+    client = FakeSupermemoryClient(
+        items=[], raise_exc=RuntimeError("SDK unavailable"))
+    enricher = make_recall_enricher(client, "p15550008888")
+    result = await enricher(call_id="call_error")
+    assert result == ""
