@@ -193,9 +193,10 @@ gitignored `context_pack.json` may carry it). W2 does **not** edit the
 locked discovery prompt — it reads `pack.email`, else a W1 lookup if
 present, else skips. Flag `ROBIN_AGENTMAIL_ENABLED`. Demo moment: the
 real confirmation email visibly arrives; the complaint draft is shown.
-Size **M ~2 h**. Touches: new file, `models.py` (one optional field),
-`main.py` W2 sub-block, `.env.example`, `requirements.txt`, tests,
-`fakes.py`.
+Size **M ~2 h**. Touches: new file, `models.py` (one optional `email`
+field), `context_pack.py` (one additive line so the loader passes an
+optional `email` through), `main.py` W2 sub-block, `.env.example`,
+`requirements.txt`, tests, `fakes.py`.
 
 ### W3 — `feat/moss-statute-search`  (Moss)
 Instant (<10 ms) semantic lookup over the **pre-verified** statute
@@ -251,7 +252,7 @@ disjoint new files. **Independence matrix:**
 |---|---|---|---|
 | W0 | `extensions.py` (+test) | `loop.py`, `app.py`, `main.py` (seam) | — (lands first) |
 | W1 | `integrations/supermemory.py` (+test, fake) | `main.py` W1 block only | none |
-| W2 | `integrations/agentmail.py` (+test, fake) | `main.py` W2 block, `models.py` +1 optional field | none |
+| W2 | `integrations/agentmail.py` (+test, fake) | `main.py` W2 block, `models.py` +1 optional field, `context_pack.py` +1 additive line (loader extracts optional `email`) | none |
 | W3 | `integrations/moss_search.py`, `scripts/setup_moss_statutes.py` (+test, fake) | `main.py` W3 block only | none |
 | W4 | `event_bus.py`, `fixtures/stage_dashboard.html` (+tests) | `main.py` W4 block only | none |
 
