@@ -1,5 +1,4 @@
 # tests/test_supermemory.py
-import os
 import pytest
 
 pytestmark = pytest.mark.asyncio
