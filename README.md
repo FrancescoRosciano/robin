@@ -4,7 +4,9 @@
 
 # ROBIN
 
-### Every hero has a sidekick. Yours makes the phone calls.
+### Every hero has a sidekick. Here is yours!
+
+**Test it now — call the Robin I built: [+1 (567) 229-6485](tel:+15672296485)**
 
 *Dial a number. Tell it the thing you've been avoiding. Hang up. It gets done.*
 
@@ -18,12 +20,6 @@
 ![license](https://img.shields.io/badge/license-MIT-1a7f37?style=flat-square)
 
 <sub>Built fresh at the YC <strong>AgentPhone "Call My Agent"</strong> Hackathon · 2026-05-17</sub>
-
-<br/><br/>
-
-## 📞 Call Robin now — `+1 (567) 229-6485`
-
-<sub>Judges: dial it and tell Robin a call you've been avoiding. It runs discovery, researches your leverage live, and acts. (US number; carrier rates may apply.)</sub>
 
 </div>
 
