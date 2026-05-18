@@ -91,6 +91,20 @@ def _parse_law_html(html: str) -> list[dict]:
 async def research_cancellation_law(jurisdiction: str, *, browser,
                                     law_url: str,
                                     law_html_path: str | None = None) -> dict:
+    # Stage-latency override: when set, skip Browser Use entirely and read
+    # the self-hosted, pre-vetted fixture directly (<10ms vs up to
+    # RESEARCH_TIMEOUT_S of dead air on a live call). Default OFF so the
+    # recorded-backup path still does real Browser Use research — the
+    # integrity bright line. Same statute text either way. Mirrors the
+    # ROBIN_SKIP_WEBHOOK_VERIFY runtime-only env pattern.
+    if (os.environ.get("ROBIN_FIXTURE_ONLY") == "1" and law_html_path
+            and os.path.exists(law_html_path)):
+        with open(law_html_path, encoding="utf-8") as fh:
+            cites = _parse_law_html(fh.read())
+        if cites:
+            return {"citations": cites, "status": "OK",
+                    "source": "fixture-only"}
+
     safe_jurisdiction = _clean_arg(jurisdiction)
     task = (
         f"Go to {law_url}. It lists cancellation-law citations for "

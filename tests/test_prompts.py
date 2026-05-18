@@ -40,3 +40,73 @@ def test_unfilled_slot_raises():
 def test_citations_slot_without_citations_raises():
     with pytest.raises(PromptRenderError, match=r"unfilled slot: \{\{citations\}\}"):
         render("Laws:\n{{citations}}", PACK, None)
+
+
+# ---------------------------------------------------------------------------
+# New gap coverage
+# ---------------------------------------------------------------------------
+
+def test_render_outbound_system_prompt_no_unfilled_slots():
+    """render_outbound_system_prompt must not leave any {{slot}} in the output (covers line 56)."""
+    from robin.prompts import render_outbound_system_prompt
+    from robin.context_pack import load_context_pack
+
+    pack = load_context_pack("tests/fixtures/context_pack.valid.json")
+    cites = [
+        Citation(
+            citation="Cal. Civ. Code §1234",
+            operative_quote="operative quote here",
+            source_url="https://example.test/law",
+        )
+    ]
+    result = render_outbound_system_prompt(pack, cites)
+
+    assert "{{" not in result, f"Unfilled slot found in outbound prompt: {result[:300]}"
+    assert "}}" not in result
+
+
+def test_render_outbound_citation_renders_verbatim():
+    """Each citation must appear with exact formatting: index. name — "quote" (url)."""
+    from robin.prompts import render_outbound_system_prompt
+    from robin.context_pack import load_context_pack
+
+    pack = load_context_pack("tests/fixtures/context_pack.valid.json")
+    cites = [
+        Citation(
+            citation="Cal. Civ. Code §1234",
+            operative_quote="operative quote here",
+            source_url="https://example.test/law",
+        )
+    ]
+    result = render_outbound_system_prompt(pack, cites)
+
+    expected_line = '1. Cal. Civ. Code §1234 — "operative quote here" (https://example.test/law)'
+    assert expected_line in result, (
+        f"Citation not rendered verbatim.\nExpected: {expected_line!r}\nGot excerpt: {result[:600]}"
+    )
+
+
+def test_render_outbound_contains_pack_values():
+    """The rendered outbound prompt must reflect target name and jurisdiction from the pack."""
+    from robin.prompts import render_outbound_system_prompt
+    from robin.context_pack import load_context_pack
+
+    pack = load_context_pack("tests/fixtures/context_pack.valid.json")
+    cites = [
+        Citation(
+            citation="FTC Rule",
+            operative_quote="Cancellation must be simple.",
+            source_url="https://example.test/ftc",
+        )
+    ]
+    result = render_outbound_system_prompt(pack, cites)
+
+    assert pack.target_name in result
+    assert pack.caller_name in result
+
+
+def test_render_outbound_unfilled_slot_raises():
+    """If the outbound template somehow still has a slot after substitution, raise PromptRenderError."""
+    # Use the lower-level render() with a stray slot to exercise the guard path.
+    with pytest.raises(PromptRenderError):
+        render("Hello {{caller_name}} — also {{unknown_slot}}", PACK, CITES)

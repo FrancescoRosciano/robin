@@ -26,7 +26,7 @@
 |---|---|
 | **1.** Presenter calls Robin live | `/stage` tab open, empty (no turns yet) — banner visible |
 | **2.** Robin discovery: "which gym?" / "24 Hour Gym" | `/stage` tab — still empty; shows Robin is live |
-| **3.** Robin: "found 415-776-2200 — want me to call?" | **Switch to `disclosure.html` tab** — full-screen "AI SIMULATION" slide |
+| **3.** Robin: "found 415-776-2200 — want me to call?" | **Switch to `disclosure.html` tab** — full-screen "CONTROLLED DEMO" slide |
 | **4.** Robin dials; negotiation begins | **Switch back to `/stage` tab** the moment first turn renders; auto-scroll does the rest |
 | **5.** Escalating exchanges / ultimatum | `/stage` — live transcript scrolling; both Robin and Receptionist turns labeled |
 | **6.** Receptionist capitulates | `/stage` — final turn renders on screen |
@@ -81,14 +81,17 @@ problem. The CONTINGENCY is a safety net, not the plan.
 
 ---
 
-## "AI Simulation" Disclosure Checklist (integrity gate)
+## Controlled-Demo Disclosure Checklist (integrity gate)
 
 - [ ] `docs/stage/disclosure.html` open in second tab before walking on stage
 - [ ] Disclosure slide visible for ≥ 3 seconds before switching to `/stage`
-- [ ] `/stage` disclosure banner ("AI SIMULATION — the receptionist is an AI.
-      The real 24 Hour Gym is never called.") visible the entire time the
+- [ ] `/stage` disclosure banner ("CONTROLLED DEMO — Robin's side is fully
+      live. The receptionist runs in a safe test environment (a briefed
+      teammate); no real business is called.") visible the entire time the
       outbound call is in progress
-- [ ] "AI simulation" spoken or on-screen at least once during the live demo
+- [ ] The controlled-environment disclosure (Robin live; receptionist = a
+      briefed teammate in a safe test environment) is spoken or on-screen at
+      least once during the live demo
 
 ---
 

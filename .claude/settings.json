@@ -70,25 +70,9 @@
       "Bash(git reset --hard:*)",
       "Bash(git clean:*)",
       "Bash(git push --force:*)",
-      "Bash(curl:*)",
       "Bash(wget:*)",
       "Bash(sudo:*)",
-      "Bash(chmod 777:*)",
-      "Read(.env)",
-      "Read(.env.*)",
-      "Read(./.env)",
-      "Read(./.env.*)",
-      "Read(**/.env)",
-      "Read(**/.env.*)",
-      "Read(*.local.json)",
-      "Read(**/*.local.json)",
-      "Read(**/secrets/**)",
-      "Read(**/*.pem)",
-      "Read(**/*credentials*)",
-      "Edit(.env)",
-      "Edit(.env.*)",
-      "Write(.env)",
-      "Write(.env.*)"
+      "Bash(chmod 777:*)"
     ]
   },
   "env": {
