@@ -83,7 +83,15 @@ _tool_impls = {
 # --- sponsor extension wiring (one delimited sub-block per branch) ---
 _hooks = ExtensionHooks()
 # >>> W1 supermemory wiring <<<   (added on feat/supermemory-recall)
-# >>> W2 agentmail wiring   <<<   (added on feat/agentmail-closeloop)
+# >>> W2 agentmail wiring   <<<
+if os.environ.get("ROBIN_AGENTMAIL_ENABLED") == "1":
+    from robin.integrations.agentmail import make_email_outcome_hook as _make_am_hook  # noqa: E402
+    _hooks = ExtensionHooks(
+        prompt_enrichers=_hooks.prompt_enrichers,
+        on_research=_hooks.on_research,
+        on_outcome=_hooks.on_outcome + (_make_am_hook(_pack),),
+        event_bus=_hooks.event_bus,
+    )
 # >>> W3 moss wiring        <<<   (added on feat/moss-statute-search)
 # >>> W4 dashboard wiring   <<<   (added on feat/dashboard-flagship)
 # --- end sponsor extension wiring ---
