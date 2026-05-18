@@ -264,3 +264,48 @@ async def test_raising_outcome_hook_does_not_affect_turn_completion():
 
     # Must not raise and must return without error
     await _record_session("c1", "deliver_result", {"summary": "done"}, out, hooks)
+
+
+async def test_build_app_passes_hooks_to_run_turn(monkeypatch, tmp_path):
+    """build_app(hooks=...) must thread hooks into run_turn.
+
+    We inject an enricher that records it was called; then POST to /webhook
+    and verify the enricher ran.
+    """
+    from fastapi.testclient import TestClient
+    import json
+
+    enricher_called: list[str | None] = []
+
+    async def spy_enricher(call_id):
+        enricher_called.append(call_id)
+        return ""
+
+    hooks = ExtensionHooks(prompt_enrichers=(spy_enricher,))
+
+    class _LLM:
+        async def create(self, *, system, messages, tools):
+            return _make_msg(["done"], "end_turn")
+
+    law = tmp_path / "law.html"
+    law.write_text("<html>law</html>")
+
+    import robin.app as app_mod
+    monkeypatch.setattr(app_mod, "_SKIP_VERIFY", True)
+
+    app = build_app(
+        secret="s", law_html_path=str(law), llm=_LLM(),
+        tool_impls={}, hooks=hooks)
+
+    payload = json.dumps({
+        "event": "agent.message",
+        "data": {"transcript": "hello", "callId": "c_hook_test"},
+        "recentHistory": [],
+    })
+    client = TestClient(app, raise_server_exceptions=True)
+    resp = client.post("/webhook", content=payload,
+                       headers={"content-type": "application/json"})
+    # Consume the streaming body
+    _ = resp.text
+
+    assert "c_hook_test" in enricher_called

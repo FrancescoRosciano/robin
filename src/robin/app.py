@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 
 from robin import obs
+from robin.extensions import ExtensionHooks
 from robin.loop import run_turn
 from robin.signature import MalformedJSONError, SignatureError, verify_signature
 
@@ -19,7 +20,8 @@ _SKIP_VERIFY = os.environ.get("ROBIN_SKIP_WEBHOOK_VERIFY") == "1"
 
 
 def build_app(*, secret: str, law_html_path: str, llm: object,
-              tool_impls: dict, system_prompt: str = "You are Robin.") -> FastAPI:
+              tool_impls: dict, system_prompt: str = "You are Robin.",
+              hooks: ExtensionHooks = ExtensionHooks()) -> FastAPI:
     app = FastAPI()
 
     @app.get("/healthz")
@@ -62,7 +64,8 @@ def build_app(*, secret: str, law_html_path: str, llm: object,
             async for chunk in run_turn(transcript, history,
                                         system=system_prompt, llm=llm,
                                         tool_impls=tool_impls,
-                                        call_id=call_id):
+                                        call_id=call_id,
+                                        hooks=hooks):
                 yield json.dumps(chunk) + "\n"
 
         return StreamingResponse(stream(), media_type="application/x-ndjson")
