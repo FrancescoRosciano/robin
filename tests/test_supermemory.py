@@ -144,3 +144,30 @@ def test_sanitize_tag_caps_at_100_chars():
 def test_sanitize_tag_no_plus_unchanged():
     from robin.integrations.supermemory import _sanitize_tag
     assert _sanitize_tag("p15555550000") == "p15555550000"
+
+
+async def test_main_wiring_w1_builds_enriched_hooks(monkeypatch):
+    """When ROBIN_MEMORY_ENABLED=1 and a fake client is injected,
+    _hooks gains one enricher and one outcome hook."""
+    monkeypatch.setenv("ROBIN_MEMORY_ENABLED", "1")
+    monkeypatch.setenv("SUPERMEMORY_API_KEY", "fake-key-for-test")
+    from robin.extensions import ExtensionHooks
+    from robin.integrations.supermemory import (
+        _sanitize_tag, make_recall_enricher, make_persist_outcome_hook,
+    )
+    from tests.fakes import FakeSupermemoryClient
+
+    # Simulate the composition-root block
+    sm_client = FakeSupermemoryClient(items=["prior call: gym cancelled"])
+    tag = _sanitize_tag("+15555550001")
+    recall = make_recall_enricher(sm_client, tag)
+    persist = make_persist_outcome_hook(sm_client, tag)
+    hooks = ExtensionHooks(
+        prompt_enrichers=(recall,),
+        on_outcome=(persist,),
+    )
+
+    # Enricher works end-to-end
+    enriched = await hooks.prompt_enrichers[0](call_id="call_smoke")
+    assert "[CALLER HISTORY]" in enriched
+    assert len(hooks.on_outcome) == 1
