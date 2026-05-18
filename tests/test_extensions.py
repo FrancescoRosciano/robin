@@ -19,3 +19,27 @@ def _make_msg(texts: list[str], stop_reason: str):
         content = [{"type": "text", "text": t} for t in texts]
     _M.stop_reason = stop_reason
     return _M()
+
+
+def test_extension_hooks_default_is_all_empty():
+    """ExtensionHooks() must be constructible with zero args and all fields empty."""
+    hooks = ExtensionHooks()
+    assert hooks.prompt_enrichers == ()
+    assert hooks.on_research == ()
+    assert hooks.on_outcome == ()
+    assert hooks.event_bus is None
+
+
+def test_extension_hooks_is_frozen():
+    """ExtensionHooks is a frozen dataclass — mutation must raise."""
+    hooks = ExtensionHooks()
+    with pytest.raises((AttributeError, TypeError)):
+        hooks.event_bus = object()  # type: ignore[misc]
+
+
+def test_extension_hooks_callable_aliases_exist():
+    """PromptEnricher, ResearchHook, OutcomeHook must be importable type aliases."""
+    # Just confirm they are callable/type objects; no runtime check needed.
+    assert PromptEnricher is not None
+    assert ResearchHook is not None
+    assert OutcomeHook is not None
