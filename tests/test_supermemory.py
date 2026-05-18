@@ -40,3 +40,31 @@ async def test_enricher_returns_empty_string_when_key_absent(monkeypatch):
     from tests.fakes import FakeSupermemoryClient
     enricher = make_recall_enricher(FakeSupermemoryClient(), "p15550001234")
     assert await enricher(call_id=None) == ""
+
+
+async def test_enricher_formats_history_block(monkeypatch):
+    """Enricher with history items returns a [CALLER HISTORY] block."""
+    monkeypatch.setenv("ROBIN_MEMORY_ENABLED", "1")
+    from robin.integrations.supermemory import make_recall_enricher
+    from tests.fakes import FakeSupermemoryClient
+    client = FakeSupermemoryClient(items=[
+        "Cancelled 24 Hour Gym membership. Last-month refund. conf=24HF-4471",
+        "Caller prefers no hold music",
+    ])
+    enricher = make_recall_enricher(client, "p14155551234")
+    result = await enricher(call_id="call_abc")
+    assert result.startswith("[CALLER HISTORY]")
+    assert "24HF-4471" in result
+    assert "hold music" in result
+    # Search was called with the right tag
+    assert client.search.calls[0]["container_tag"] == "p14155551234"
+
+
+async def test_enricher_returns_empty_string_when_no_results(monkeypatch):
+    """Zero results → empty string (no header block)."""
+    monkeypatch.setenv("ROBIN_MEMORY_ENABLED", "1")
+    from robin.integrations.supermemory import make_recall_enricher
+    from tests.fakes import FakeSupermemoryClient
+    client = FakeSupermemoryClient(items=[])
+    enricher = make_recall_enricher(client, "p14155550000")
+    assert await enricher(call_id="call_xyz") == ""
