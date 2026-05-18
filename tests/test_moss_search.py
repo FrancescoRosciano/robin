@@ -17,3 +17,36 @@ def test_flag_off_tool_impls_unchanged(monkeypatch):
     ms._client = None
     ms._index_ready = False
     assert ms._client is None
+
+
+@pytest.mark.asyncio
+async def test_moss_research_returns_correct_shape(monkeypatch):
+    """moss_research with a populated FakeMossClient returns the correct dict shape."""
+    import robin.integrations.moss_search as ms
+    from tests.fakes import FakeMossClient, FakeMossDoc, FakeMossQueryResult
+
+    fake_result = FakeMossQueryResult(
+        docs=[
+            FakeMossDoc(id="rosca-8403",      text="provides simple mechanisms…", score=0.95),
+            FakeMossDoc(id="cal-civ-1812-85", text="All moneys paid…",            score=0.88),
+        ],
+        time_taken_ms=4,
+    )
+    fake_client = FakeMossClient(
+        list_indexes_returns=["robin-statutes"],  # index already exists
+        query_returns=fake_result,
+    )
+    # Inject fake client and mark index ready
+    ms._client = fake_client
+    ms._index_name = "robin-statutes"
+    ms._index_ready = True
+
+    result = await ms.moss_research("California")
+
+    assert result["status"] == "OK"
+    assert isinstance(result["citations"], list)
+    assert len(result["citations"]) == 2
+    first = result["citations"][0]
+    assert first["citation"] == "15 U.S.C. § 8403"
+    assert first["operative_quote"] == "provides simple mechanisms…"
+    assert "law.cornell.edu" in first["source_url"]

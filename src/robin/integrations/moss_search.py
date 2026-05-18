@@ -218,8 +218,15 @@ async def moss_research(jurisdiction: str) -> dict:
         return await _call_browser_use_fallback(jurisdiction)
 
     try:
-        from moss import QueryOptions  # type: ignore
-        result = await _client.query(_index_name, jurisdiction, QueryOptions(top_k=3, alpha=0.7))
+        try:
+            from moss import QueryOptions  # type: ignore
+            _options = QueryOptions(top_k=3, alpha=0.7)
+        except ImportError:
+            # moss SDK absent (e.g. unit tests with FakeMossClient). The
+            # injected client accepts options=None; real-Moss behaviour is
+            # unchanged because the import succeeds when the SDK is present.
+            _options = None
+        result = await _client.query(_index_name, jurisdiction, _options)
         obs.log_event(
             "moss_query",
             index=_index_name,
