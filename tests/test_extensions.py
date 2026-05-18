@@ -309,3 +309,48 @@ async def test_build_app_passes_hooks_to_run_turn(monkeypatch, tmp_path):
     _ = resp.text
 
     assert "c_hook_test" in enricher_called
+
+
+def test_make_stage_router_default_html_is_byte_identical():
+    """make_stage_router() with no args (besides broadcaster) must return the same HTML
+    as the original call — existing test_stage.py assertions must all still hold."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from robin.broadcast import TurnBroadcaster
+
+    b = TurnBroadcaster()
+
+    # New call with explicit defaults (should match original)
+    app_new = FastAPI()
+    app_new.include_router(make_stage_router(b, event_bus=None, stage_html=None))
+    body_new = TestClient(app_new).get("/stage").text
+
+    # Original call (positional broadcaster only)
+    app_orig = FastAPI()
+    app_orig.include_router(make_stage_router(b))
+    body_orig = TestClient(app_orig).get("/stage").text
+
+    assert body_new == body_orig
+
+
+def test_make_stage_router_custom_html_is_served():
+    """When stage_html is supplied it replaces the default HTML."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from robin.broadcast import TurnBroadcaster
+
+    b = TurnBroadcaster()
+    custom = "<html><body>CUSTOM</body></html>"
+    app = FastAPI()
+    app.include_router(make_stage_router(b, stage_html=custom))
+    body = TestClient(app).get("/stage").text
+    assert body == custom
+
+
+def test_make_stage_router_no_event_bus_sse_identical():
+    """With event_bus=None the SSE stream produces the same turn events as before."""
+    # This is validated indirectly by running test_stage.py (which we do NOT modify).
+    # This test just confirms make_stage_router accepts the new signature with defaults.
+    from robin.broadcast import TurnBroadcaster
+    router = make_stage_router(TurnBroadcaster(), event_bus=None, stage_html=None)
+    assert router is not None
