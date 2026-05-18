@@ -99,13 +99,33 @@ _STAGE_HTML = """\
 """
 
 
-def make_stage_router(broadcaster) -> APIRouter:
-    """Build the /stage router bound to the given TurnBroadcaster instance."""
+def make_stage_router(
+    broadcaster,
+    *,
+    event_bus=None,
+    stage_html: str | None = None,
+) -> APIRouter:
+    """Build the /stage router bound to the given TurnBroadcaster instance.
+
+    Parameters
+    ----------
+    broadcaster:
+        TurnBroadcaster instance — unchanged from today.
+    event_bus:
+        Optional W4 EventBus. When provided its subscribe()/unsubscribe(q)
+        queue items of shape {"event": str, "data": dict} are drained into
+        the SSE stream alongside "turn" events. None (default) == today's
+        behavior exactly.
+    stage_html:
+        Optional HTML string to serve from GET /stage. Defaults to
+        _STAGE_HTML (the current inline string) — identical behavior.
+    """
+    _html = stage_html if stage_html is not None else _STAGE_HTML
     router = APIRouter()
 
     @router.get("/stage", response_class=HTMLResponse)
     async def stage_page():
-        return HTMLResponse(content=_STAGE_HTML)
+        return HTMLResponse(content=_html)
 
     @router.get("/stage/stream")
     async def stage_stream():
@@ -122,6 +142,21 @@ def make_stage_router(broadcaster) -> APIRouter:
                         yield f"event: turn\ndata: {payload}\n\n"
                     except asyncio.TimeoutError:
                         yield ": heartbeat\n\n"   # keep the connection alive
+                    # --- W0 event_bus drain (no-op when None) ---
+                    if event_bus is not None:
+                        try:
+                            bus_q = event_bus.subscribe()
+                            try:
+                                while True:
+                                    item = bus_q.get_nowait()
+                                    bus_payload = json.dumps(item["data"])
+                                    yield (f"event: {item['event']}\n"
+                                           f"data: {bus_payload}\n\n")
+                            except asyncio.QueueEmpty:
+                                pass
+                        finally:
+                            event_bus.unsubscribe(bus_q)
+                    # --- end W0 event_bus drain ---
             except asyncio.CancelledError:
                 pass
             finally:

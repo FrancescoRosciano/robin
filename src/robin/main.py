@@ -9,6 +9,7 @@ from robin.anthropic_adapter import AnthropicLLM
 from robin.app import build_app
 from robin.config import load_settings
 from robin.context_pack import load_context_pack
+from robin.extensions import ExtensionHooks
 from robin.models import Citation
 from robin.outbound import (CallRegistry, make_deliver_result,
                             make_place_negotiation_call)
@@ -79,7 +80,16 @@ _tool_impls = {
         callback_number=_pack.callback_number),
 }
 
+# --- sponsor extension wiring (one delimited sub-block per branch) ---
+_hooks = ExtensionHooks()
+# >>> W1 supermemory wiring <<<   (added on feat/supermemory-recall)
+# >>> W2 agentmail wiring   <<<   (added on feat/agentmail-closeloop)
+# >>> W3 moss wiring        <<<   (added on feat/moss-statute-search)
+# >>> W4 dashboard wiring   <<<   (added on feat/dashboard-flagship)
+# --- end sponsor extension wiring ---
+
 app = build_app(
     secret=_settings.agentphone_webhook_secret,
     law_html_path=LAW_HTML_PATH, llm=_llm, tool_impls=_tool_impls,
-    system_prompt=render_inbound_system_prompt(_pack))
+    system_prompt=render_inbound_system_prompt(_pack),
+    hooks=_hooks)
