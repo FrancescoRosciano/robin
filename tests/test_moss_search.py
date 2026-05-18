@@ -50,3 +50,41 @@ async def test_moss_research_returns_correct_shape(monkeypatch):
     assert first["citation"] == "15 U.S.C. § 8403"
     assert first["operative_quote"] == "provides simple mechanisms…"
     assert "law.cornell.edu" in first["source_url"]
+
+
+@pytest.mark.asyncio
+async def test_moss_research_empty_result_falls_back(monkeypatch):
+    """Empty Moss result triggers Browser Use fallback and returns its shape."""
+    import robin.integrations.moss_search as ms
+    from tests.fakes import FakeMossClient, FakeMossQueryResult
+
+    fake_client = FakeMossClient(
+        list_indexes_returns=["robin-statutes"],
+        query_returns=FakeMossQueryResult(docs=[], time_taken_ms=3),
+    )
+    ms._client = fake_client
+    ms._index_name = "robin-statutes"
+    ms._index_ready = True
+
+    fallback_result = {
+        "citations": [{"citation": "15 U.S.C. § 8403",
+                       "operative_quote": "provides simple mechanisms…",
+                       "source_url": "https://example.com"}],
+        "status": "OK",
+    }
+
+    async def _fake_bu(jurisdiction, *, browser, law_url, law_html_path=None):
+        return fallback_result
+
+    # Patch the Browser Use path that moss_search imports
+    monkeypatch.setattr(
+        "robin.integrations.moss_search._fallback_browser", object())
+    monkeypatch.setattr(
+        "robin.integrations.moss_search._fallback_law_url", "http://test/law.html")
+
+    import robin.tools as tools_mod
+    monkeypatch.setattr(tools_mod, "research_cancellation_law", _fake_bu)
+
+    result = await ms.moss_research("California")
+    assert result["status"] == "OK"
+    assert len(result["citations"]) == 1
