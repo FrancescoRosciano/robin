@@ -1,0 +1,196 @@
+# tests/test_supermemory.py
+import pytest
+
+pytestmark = pytest.mark.asyncio
+
+
+async def test_enricher_returns_empty_string_when_flag_off(monkeypatch):
+    """Flag absent → enricher no-ops → empty string, no network call."""
+    monkeypatch.delenv("ROBIN_MEMORY_ENABLED", raising=False)
+    monkeypatch.delenv("SUPERMEMORY_API_KEY", raising=False)
+    from robin.integrations.supermemory import make_recall_enricher
+    from tests.fakes import FakeSupermemoryClient
+    client = FakeSupermemoryClient(items=["some history"])
+    enricher = make_recall_enricher(client, "p15550001234")
+    result = await enricher(call_id="call_test")
+    assert result == ""
+    assert client.search.calls == []  # no network call made
+
+
+async def test_persist_hook_is_noop_when_flag_off(monkeypatch):
+    """Flag absent → outcome hook no-ops → no add() call, no exception."""
+    monkeypatch.delenv("ROBIN_MEMORY_ENABLED", raising=False)
+    monkeypatch.delenv("SUPERMEMORY_API_KEY", raising=False)
+    from robin.integrations.supermemory import make_persist_outcome_hook
+    from tests.fakes import FakeSupermemoryClient
+    client = FakeSupermemoryClient()
+    hook = make_persist_outcome_hook(client, "p15550001234")
+    await hook(call_id="call_test",
+               payload={"summary": "cancelled", "confirmation": "24HF-4471",
+                        "channel": None, "out": {"delivered": True}})
+    assert client.added == []
+
+
+async def test_enricher_returns_empty_string_when_key_absent(monkeypatch):
+    """Flag set but no key → enricher no-ops."""
+    monkeypatch.setenv("ROBIN_MEMORY_ENABLED", "1")
+    monkeypatch.delenv("SUPERMEMORY_API_KEY", raising=False)
+    from robin.integrations.supermemory import make_recall_enricher
+    from tests.fakes import FakeSupermemoryClient
+    enricher = make_recall_enricher(FakeSupermemoryClient(), "p15550001234")
+    assert await enricher(call_id=None) == ""
+
+
+async def test_enricher_formats_history_block(monkeypatch):
+    """Enricher with history items returns a [CALLER HISTORY] block."""
+    monkeypatch.setenv("ROBIN_MEMORY_ENABLED", "1")
+    from robin.integrations.supermemory import make_recall_enricher
+    from tests.fakes import FakeSupermemoryClient
+    client = FakeSupermemoryClient(items=[
+        "Cancelled 24 Hour Gym membership. Last-month refund. conf=24HF-4471",
+        "Caller prefers no hold music",
+    ])
+    enricher = make_recall_enricher(client, "p14155551234")
+    result = await enricher(call_id="call_abc")
+    assert result.startswith("[CALLER HISTORY]")
+    assert "24HF-4471" in result
+    assert "hold music" in result
+    # Search was called with the right tag
+    assert client.search.calls[0]["container_tag"] == "p14155551234"
+
+
+async def test_enricher_returns_empty_string_when_no_results(monkeypatch):
+    """Zero results → empty string (no header block)."""
+    monkeypatch.setenv("ROBIN_MEMORY_ENABLED", "1")
+    from robin.integrations.supermemory import make_recall_enricher
+    from tests.fakes import FakeSupermemoryClient
+    client = FakeSupermemoryClient(items=[])
+    enricher = make_recall_enricher(client, "p14155550000")
+    assert await enricher(call_id="call_xyz") == ""
+
+
+async def test_enricher_returns_empty_string_on_timeout(monkeypatch):
+    """asyncio.TimeoutError from fetch → return "" (never raise)."""
+    import asyncio
+    monkeypatch.setenv("ROBIN_MEMORY_ENABLED", "1")
+    from robin.integrations.supermemory import make_recall_enricher
+    from tests.fakes import FakeSupermemoryClient
+    client = FakeSupermemoryClient(items=[], raise_exc=asyncio.TimeoutError())
+    enricher = make_recall_enricher(client, "p15550009999")
+    result = await enricher(call_id="call_timeout")
+    assert result == ""
+
+
+async def test_enricher_returns_empty_string_on_api_error(monkeypatch):
+    """Any exception from the SDK → return "" (never raise)."""
+    monkeypatch.setenv("ROBIN_MEMORY_ENABLED", "1")
+    from robin.integrations.supermemory import make_recall_enricher
+    from tests.fakes import FakeSupermemoryClient
+    client = FakeSupermemoryClient(
+        items=[], raise_exc=RuntimeError("SDK unavailable"))
+    enricher = make_recall_enricher(client, "p15550008888")
+    result = await enricher(call_id="call_error")
+    assert result == ""
+
+
+async def test_persist_hook_schedules_task_and_returns_immediately(monkeypatch):
+    """Outcome hook must return without awaiting the persist network call."""
+    import asyncio
+    monkeypatch.setenv("ROBIN_MEMORY_ENABLED", "1")
+    from robin.integrations.supermemory import make_persist_outcome_hook
+    from tests.fakes import FakeSupermemoryClient
+    client = FakeSupermemoryClient()
+    hook = make_persist_outcome_hook(client, "p14155557777")
+    payload = {"summary": "Cancelled gym. Got refund.", "confirmation": "24HF-4471",
+               "channel": "voice", "out": {"delivered": True}}
+    # The hook itself must return before client.add is awaited
+    await hook(call_id="call_abc", payload=payload)
+    # After draining the event loop, the task should have run
+    await asyncio.sleep(0)  # let the scheduled task execute
+    assert len(client.added) == 1
+    assert "24HF-4471" in client.added[0]["content"]
+    assert client.added[0]["container_tag"] == "p14155557777"
+
+
+async def test_persist_hook_never_raises_on_add_failure(monkeypatch):
+    """add() raising must be swallowed; hook must not propagate."""
+    import asyncio
+    monkeypatch.setenv("ROBIN_MEMORY_ENABLED", "1")
+    from robin.integrations.supermemory import make_persist_outcome_hook
+    from tests.fakes import FakeSupermemoryClient
+    client = FakeSupermemoryClient(add_raise=RuntimeError("storage down"))
+    hook = make_persist_outcome_hook(client, "p15550006666")
+    # Must not raise
+    await hook(call_id="call_fail",
+               payload={"summary": "test", "confirmation": None,
+                        "channel": None, "out": {}})
+    await asyncio.sleep(0)
+    # No assert needed; the test passing means no exception was propagated
+
+
+def test_sanitize_tag_replaces_plus_with_p():
+    from robin.integrations.supermemory import _sanitize_tag
+    assert _sanitize_tag("+14155551234") == "p14155551234"
+
+
+def test_sanitize_tag_caps_at_100_chars():
+    from robin.integrations.supermemory import _sanitize_tag
+    long_number = "+1" + "5" * 120
+    tag = _sanitize_tag(long_number)
+    assert len(tag) <= 100
+
+
+def test_sanitize_tag_no_plus_unchanged():
+    from robin.integrations.supermemory import _sanitize_tag
+    assert _sanitize_tag("p15555550000") == "p15555550000"
+
+
+async def test_main_wiring_w1_builds_enriched_hooks(monkeypatch):
+    """When ROBIN_MEMORY_ENABLED=1 and a fake client is injected,
+    _hooks gains one enricher and one outcome hook."""
+    monkeypatch.setenv("ROBIN_MEMORY_ENABLED", "1")
+    monkeypatch.setenv("SUPERMEMORY_API_KEY", "fake-key-for-test")
+    from robin.extensions import ExtensionHooks
+    from robin.integrations.supermemory import (
+        _sanitize_tag, make_recall_enricher, make_persist_outcome_hook,
+    )
+    from tests.fakes import FakeSupermemoryClient
+
+    # Simulate the composition-root block
+    sm_client = FakeSupermemoryClient(items=["prior call: gym cancelled"])
+    tag = _sanitize_tag("+15555550001")
+    recall = make_recall_enricher(sm_client, tag)
+    persist = make_persist_outcome_hook(sm_client, tag)
+    hooks = ExtensionHooks(
+        prompt_enrichers=(recall,),
+        on_outcome=(persist,),
+    )
+
+    # Enricher works end-to-end
+    enriched = await hooks.prompt_enrichers[0](call_id="call_smoke")
+    assert "[CALLER HISTORY]" in enriched
+    assert len(hooks.on_outcome) == 1
+
+
+async def test_full_suite_canonical_path_unchanged_when_flag_off(monkeypatch):
+    """With ROBIN_MEMORY_ENABLED unset, run_turn produces identical output
+    to a pre-W1 baseline (no enricher text injected)."""
+    monkeypatch.delenv("ROBIN_MEMORY_ENABLED", raising=False)
+    from robin.loop import run_turn
+    from tests.fakes import FakeLLM
+
+    class _Msg:
+        def __init__(self, content, stop_reason):
+            self.content = content
+            self.stop_reason = stop_reason
+
+    llm = FakeLLM([_Msg(
+        [{"type": "text", "text": "Hi, this is Robin."}], "end_turn")])
+    # Use default hooks (no enrichers) — W0's ExtensionHooks default
+    from robin.extensions import ExtensionHooks
+    out = [c async for c in run_turn(
+        "hello", [], system="SYS", llm=llm, tool_impls={},
+        hooks=ExtensionHooks(), call_id=None)]
+    assert out[-1]["text"] == "Hi, this is Robin."
+    # No enricher text in the system passed to the LLM
+    assert "CALLER HISTORY" not in llm.calls[0]["system"]

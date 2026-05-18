@@ -9,6 +9,7 @@ from robin.anthropic_adapter import AnthropicLLM
 from robin.app import build_app
 from robin.config import load_settings
 from robin.context_pack import load_context_pack
+from robin import obs
 from robin.extensions import ExtensionHooks
 from robin.models import Citation
 from robin.outbound import (CallRegistry, make_deliver_result,
@@ -82,7 +83,25 @@ _tool_impls = {
 
 # --- sponsor extension wiring (one delimited sub-block per branch) ---
 _hooks = ExtensionHooks()
-# >>> W1 supermemory wiring <<<   (added on feat/supermemory-recall)
+# >>> W1 supermemory wiring <<<
+if os.environ.get("ROBIN_MEMORY_ENABLED") == "1":
+    from robin.integrations.supermemory import (
+        _get_client, _sanitize_tag,
+        make_recall_enricher, make_persist_outcome_hook,
+    )
+    _sm_client = _get_client()
+    if _sm_client is not None:
+        _sm_tag = _sanitize_tag(_pack.callback_number)
+        _recall = make_recall_enricher(_sm_client, _sm_tag)
+        _persist_outcome = make_persist_outcome_hook(_sm_client, _sm_tag)
+        _hooks = ExtensionHooks(
+            prompt_enrichers=_hooks.prompt_enrichers + (_recall,),
+            on_outcome=_hooks.on_outcome + (_persist_outcome,),
+            on_research=_hooks.on_research,
+            event_bus=_hooks.event_bus,
+        )
+        obs.log_event("supermemory_enabled", tag=_sm_tag)
+# >>> end W1 <<<
 # >>> W2 agentmail wiring   <<<   (added on feat/agentmail-closeloop)
 # >>> W3 moss wiring        <<<   (added on feat/moss-statute-search)
 # >>> W4 dashboard wiring   <<<   (added on feat/dashboard-flagship)
