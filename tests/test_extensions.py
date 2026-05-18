@@ -192,3 +192,44 @@ async def test_on_research_hook_does_not_fire_for_other_tools():
     await _record_session("c1", "deliver_result", {"summary": "done"}, {"delivered": True}, hooks)
 
     assert received == []
+
+
+async def test_on_outcome_hook_fires_with_exact_payload_shape():
+    """on_outcome must be called with the documented payload dict."""
+    received: list[tuple] = []
+
+    async def outcome_hook(call_id, payload):
+        received.append((call_id, payload))
+
+    tool_input = {
+        "summary": "Cancelled + last-month refund",
+        "confirmation": "24HF-4471",
+        "channel": "callback",
+    }
+    out = {"delivered": True}
+    hooks = ExtensionHooks(on_outcome=(outcome_hook,))
+
+    await _record_session("call_99", "deliver_result", tool_input, out, hooks)
+
+    assert len(received) == 1
+    cid, payload = received[0]
+    assert cid == "call_99"
+    assert payload["summary"] == "Cancelled + last-month refund"
+    assert payload["confirmation"] == "24HF-4471"
+    assert payload["channel"] == "callback"
+    assert payload["out"] is out
+
+
+async def test_on_outcome_hook_does_not_fire_when_delivered_false():
+    """on_outcome must NOT fire if delivered is False/absent."""
+    received: list = []
+
+    async def outcome_hook(call_id, payload):
+        received.append(payload)
+
+    hooks = ExtensionHooks(on_outcome=(outcome_hook,))
+
+    await _record_session("c1", "deliver_result", {"summary": "x"}, {"delivered": False}, hooks)
+    await _record_session("c1", "deliver_result", {"summary": "x"}, {}, hooks)
+
+    assert received == []
