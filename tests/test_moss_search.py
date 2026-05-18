@@ -155,3 +155,19 @@ async def test_setup_script_creates_index_when_missing(monkeypatch, capsys):
     assert len(docs) == 3   # exactly the three verified statutes
     ids = {d.id for d in docs}
     assert ids == {"rosca-8403", "cal-civ-1812-85", "cal-bpc-17602"}
+
+
+def test_corpus_contains_exactly_three_locked_statutes():
+    """_build_corpus() returns exactly the three verified statutes and nothing else."""
+    import robin.integrations.moss_search as ms
+    # Temporarily supply a stub DocumentInfo if moss is not importable:
+    try:
+        docs = ms._build_corpus()
+    except ImportError:
+        pytest.skip("moss not installed in this environment")
+
+    ids = [d.id for d in docs]
+    assert sorted(ids) == sorted(["rosca-8403", "cal-civ-1812-85", "cal-bpc-17602"])
+    assert len(docs) == 3
+    for d in docs:
+        assert len(d.text) > 100, f"doc {d.id} text suspiciously short"
