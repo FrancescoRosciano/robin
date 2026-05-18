@@ -71,11 +71,80 @@ async def test_hook_noop_when_flag_is_zero(monkeypatch):
 
 
 async def test_done_outcome_sends_caller_email(monkeypatch):
-    assert False, "not implemented"
+    """On DONE with pack.email set, send is called with correct to/subject/confirmation."""
+    monkeypatch.setenv("ROBIN_AGENTMAIL_ENABLED", "1")
+    monkeypatch.setenv("AGENTMAIL_API_KEY", "dummy-key")
+
+    import robin.integrations.agentmail as am_mod
+    from tests.fakes import FakeAgentMailClient
+
+    fake = FakeAgentMailClient(
+        inbox_id="inbox-test-01",
+        inbox_email="robin-confirms@agentmail.to",
+    )
+    # Pre-seed the inbox singleton so _ensure_inbox skips creation
+    monkeypatch.setattr(am_mod, "_client", fake)
+    monkeypatch.setattr(am_mod, "_inbox_id", "inbox-test-01")
+    monkeypatch.setattr(am_mod, "_inbox_email", "robin-confirms@agentmail.to")
+
+    pack = _pack("test@example.com")
+    hook = am_mod.make_email_outcome_hook(pack)
+    payload = {
+        "summary": "Membership cancelled and last-month refund secured.",
+        "confirmation": "24HF-4471",
+        "channel": "stay_on",
+        "out": {"delivered": True},
+    }
+
+    await hook(call_id="call-003", payload=payload)
+
+    # Drain all pending tasks so the create_task coroutine runs
+    await asyncio.sleep(0)       # one iteration of the event loop
+    # Allow the send coroutines inside _send_emails to complete
+    await asyncio.gather(*(asyncio.all_tasks() - {asyncio.current_task()}),
+                         return_exceptions=True)
+
+    # Two sends: caller confirmation + complaint draft
+    assert len(fake.sent) == 2
+
+    # Caller email
+    caller_msg = next(m for m in fake.sent if m["to"] == "test@example.com")
+    assert "24HF-4471" in caller_msg["text"]
+    assert "cancel" in caller_msg["subject"].lower()
+
+    # Complaint draft (synthetic gym address)
+    complaint_msg = next(
+        m for m in fake.sent
+        if m["to"] == "cancellations@24hourfitness-demo.invalid"
+    )
+    assert "24HF-4471" in complaint_msg["text"]
+    assert "DRAFTED BY ROBIN" in complaint_msg["text"]
 
 
 async def test_fallback_confirmation_used_when_absent(monkeypatch):
-    assert False, "not implemented"
+    """When payload has no confirmation, uses _FALLBACK_CONFIRMATION."""
+    monkeypatch.setenv("ROBIN_AGENTMAIL_ENABLED", "1")
+    monkeypatch.setenv("AGENTMAIL_API_KEY", "dummy-key")
+
+    import robin.integrations.agentmail as am_mod
+    from tests.fakes import FakeAgentMailClient
+
+    fake = FakeAgentMailClient()
+    monkeypatch.setattr(am_mod, "_client", fake)
+    monkeypatch.setattr(am_mod, "_inbox_id", "inbox-test-01")
+    monkeypatch.setattr(am_mod, "_inbox_email", "robin-confirms@agentmail.to")
+
+    hook = am_mod.make_email_outcome_hook(_pack("test@example.com"))
+    payload = {
+        "summary": "Cancelled.",
+        "confirmation": None,
+        "channel": None,
+        "out": {"delivered": True},
+    }
+    await hook(call_id="call-004", payload=payload)
+    await asyncio.gather(*(asyncio.all_tasks() - {asyncio.current_task()}),
+                         return_exceptions=True)
+    assert any("24HF-4471" in m["text"] for m in fake.sent)
 
 
 async def test_missing_email_skips_caller_send(monkeypatch):
