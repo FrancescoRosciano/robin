@@ -30,14 +30,14 @@
 ## Slide 1 — Hook
 
 **Headline:**
-> Every superhuman needs a sidekick.
+> Every superhero needs a sidekick.
 
 **Reveal line (appears after a beat):**
 > Meet **Robin**. Call it. Tell it what you want. Give it a number.
 > It handles the rest.
 
 **Visual direction:**
-- Near-black stage. The line "Every superhuman needs a sidekick."
+- Near-black stage. The line "Every superhero needs a sidekick."
   dominates. On the reveal, "Robin" snaps in big with the accent
   colour; the three actions (*call it · tell it · give it a number*)
   sit small underneath as a single tight line.
@@ -45,7 +45,7 @@
   clip-art.
 
 **Speaker notes (say this):**
-- "Every superhuman needs a sidekick." (beat)
+- "Every superhero needs a sidekick." (beat)
 - "This is yours. It's called Robin. You phone it, you tell it what
   you want, you hand it a number — and it goes and does the call you
   hate, for you."
