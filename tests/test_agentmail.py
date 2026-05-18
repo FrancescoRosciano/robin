@@ -223,11 +223,68 @@ async def test_ambiguous_outcome_no_send(monkeypatch):
 
 
 async def test_send_raises_swallowed_and_logged(monkeypatch):
-    assert False, "not implemented"
+    """An exception inside _send_emails is swallowed; obs.log_event called."""
+    monkeypatch.setenv("ROBIN_AGENTMAIL_ENABLED", "1")
+    monkeypatch.setenv("AGENTMAIL_API_KEY", "dummy-key")
+
+    logged: list[str] = []
+    import robin.obs as obs_mod
+    original_log = obs_mod.log_event
+
+    def _capture_log(event, **kw):
+        logged.append(event)
+        original_log(event, **kw)
+
+    monkeypatch.setattr(obs_mod, "log_event", _capture_log)
+
+    # Monkeypatch _send_emails to raise
+    import robin.integrations.agentmail as am_mod
+
+    async def _bad_send(**kw):
+        raise RuntimeError("network gone")
+
+    monkeypatch.setattr(am_mod, "_send_emails", _bad_send)
+
+    hook = am_mod.make_email_outcome_hook(_pack("test@example.com"))
+    await hook(call_id="call-007", payload=_DONE_PAYLOAD)
+    await asyncio.gather(*(asyncio.all_tasks() - {asyncio.current_task()}),
+                         return_exceptions=True)
+
+    assert any("agentmail" in e for e in logged)
+    # Hook itself did not raise — test reaching here proves it
 
 
 async def test_hook_returns_before_send_completes(monkeypatch):
-    assert False, "not implemented"
+    """Hook must return without blocking on the send task."""
+    import time
+
+    monkeypatch.setenv("ROBIN_AGENTMAIL_ENABLED", "1")
+    monkeypatch.setenv("AGENTMAIL_API_KEY", "dummy-key")
+
+    import robin.integrations.agentmail as am_mod
+
+    send_started = asyncio.Event()
+    send_done = asyncio.Event()
+
+    async def _slow_send(**kw):
+        send_started.set()
+        await asyncio.sleep(0.1)   # simulate 100 ms network
+        send_done.set()
+
+    monkeypatch.setattr(am_mod, "_send_emails", _slow_send)
+
+    hook = am_mod.make_email_outcome_hook(_pack("test@example.com"))
+    t0 = time.monotonic()
+    await hook(call_id="call-008", payload=_DONE_PAYLOAD)
+    elapsed = time.monotonic() - t0
+
+    # Hook returned before the 100 ms sleep finished
+    assert elapsed < 0.05, f"hook blocked for {elapsed:.3f}s"
+    assert not send_done.is_set(), "send completed before hook returned"
+
+    # Clean up the background task
+    await asyncio.gather(*(asyncio.all_tasks() - {asyncio.current_task()}),
+                         return_exceptions=True)
 
 
 async def test_inbox_created_once_across_two_calls(monkeypatch):
