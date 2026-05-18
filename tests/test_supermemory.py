@@ -127,3 +127,20 @@ async def test_persist_hook_never_raises_on_add_failure(monkeypatch):
                         "channel": None, "out": {}})
     await asyncio.sleep(0)
     # No assert needed; the test passing means no exception was propagated
+
+
+def test_sanitize_tag_replaces_plus_with_p():
+    from robin.integrations.supermemory import _sanitize_tag
+    assert _sanitize_tag("+14155551234") == "p14155551234"
+
+
+def test_sanitize_tag_caps_at_100_chars():
+    from robin.integrations.supermemory import _sanitize_tag
+    long_number = "+1" + "5" * 120
+    tag = _sanitize_tag(long_number)
+    assert len(tag) <= 100
+
+
+def test_sanitize_tag_no_plus_unchanged():
+    from robin.integrations.supermemory import _sanitize_tag
+    assert _sanitize_tag("p15555550000") == "p15555550000"
