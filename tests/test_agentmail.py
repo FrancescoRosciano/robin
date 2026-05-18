@@ -148,15 +148,78 @@ async def test_fallback_confirmation_used_when_absent(monkeypatch):
 
 
 async def test_missing_email_skips_caller_send(monkeypatch):
-    assert False, "not implemented"
+    """pack.email == "" → caller email is skipped; complaint draft still sent."""
+    monkeypatch.setenv("ROBIN_AGENTMAIL_ENABLED", "1")
+    monkeypatch.setenv("AGENTMAIL_API_KEY", "dummy-key")
+
+    import robin.integrations.agentmail as am_mod
+    from tests.fakes import FakeAgentMailClient
+
+    fake = FakeAgentMailClient()
+    monkeypatch.setattr(am_mod, "_client", fake)
+    monkeypatch.setattr(am_mod, "_inbox_id", "inbox-test-01")
+    monkeypatch.setattr(am_mod, "_inbox_email", "robin-confirms@agentmail.to")
+
+    hook = am_mod.make_email_outcome_hook(_pack(""))
+    await hook(call_id="call-005", payload=_DONE_PAYLOAD)
+    await asyncio.gather(*(asyncio.all_tasks() - {asyncio.current_task()}),
+                         return_exceptions=True)
+    # Caller email NOT in sent (no empty-to send)
+    assert not any(m["to"] == "" for m in fake.sent)
+    # Complaint draft still attempted
+    assert any("24hourfitness-demo.invalid" in m["to"] for m in fake.sent)
 
 
 async def test_non_done_outcome_no_send(monkeypatch):
-    assert False, "not implemented"
+    """When out['delivered'] is False, no email is sent."""
+    monkeypatch.setenv("ROBIN_AGENTMAIL_ENABLED", "1")
+    monkeypatch.setenv("AGENTMAIL_API_KEY", "dummy-key")
+
+    import robin.integrations.agentmail as am_mod
+    from tests.fakes import FakeAgentMailClient
+
+    fake = FakeAgentMailClient()
+    monkeypatch.setattr(am_mod, "_client", fake)
+    monkeypatch.setattr(am_mod, "_inbox_id", "inbox-test-01")
+    monkeypatch.setattr(am_mod, "_inbox_email", "robin-confirms@agentmail.to")
+
+    hook = am_mod.make_email_outcome_hook(_pack("test@example.com"))
+    payload = {
+        "summary": "Blocked.",
+        "confirmation": None,
+        "channel": None,
+        "out": {"delivered": False},
+    }
+    await hook(call_id="call-006", payload=payload)
+    await asyncio.gather(*(asyncio.all_tasks() - {asyncio.current_task()}),
+                         return_exceptions=True)
+    assert fake.sent == []
 
 
 async def test_ambiguous_outcome_no_send(monkeypatch):
-    assert False, "not implemented"
+    """delivered=True but no confirmation and no success keywords → no send."""
+    monkeypatch.setenv("ROBIN_AGENTMAIL_ENABLED", "1")
+    monkeypatch.setenv("AGENTMAIL_API_KEY", "dummy-key")
+
+    import robin.integrations.agentmail as am_mod
+    from tests.fakes import FakeAgentMailClient
+
+    fake = FakeAgentMailClient()
+    monkeypatch.setattr(am_mod, "_client", fake)
+    monkeypatch.setattr(am_mod, "_inbox_id", "inbox-test-01")
+    monkeypatch.setattr(am_mod, "_inbox_email", "robin-confirms@agentmail.to")
+
+    hook = am_mod.make_email_outcome_hook(_pack("test@example.com"))
+    payload = {
+        "summary": "something happened",
+        "confirmation": None,
+        "channel": None,
+        "out": {"delivered": True},
+    }
+    await hook(call_id="call-006b", payload=payload)
+    await asyncio.gather(*(asyncio.all_tasks() - {asyncio.current_task()}),
+                         return_exceptions=True)
+    assert fake.sent == []
 
 
 async def test_send_raises_swallowed_and_logged(monkeypatch):
