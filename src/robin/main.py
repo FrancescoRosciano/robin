@@ -122,7 +122,70 @@ if os.environ.get("MOSS_PROJECT_ID") and os.environ.get("MOSS_PROJECT_KEY"):
     )
     _tool_impls["research_cancellation_law"] = moss_research
 # >>> end W3 <<<
-# >>> W4 dashboard wiring   <<<   (added on feat/dashboard-flagship)
+# >>> W4 dashboard wiring <<<
+if os.environ.get("ROBIN_DASHBOARD_ENHANCED") == "1":
+    import pathlib as _pathlib
+
+    from robin.broadcast import TurnBroadcaster
+    from robin.event_bus import EventBus
+
+    _bus = EventBus()
+    _broadcaster = TurnBroadcaster()           # transcript fan-out target
+    _dashboard_html = _pathlib.Path(
+        "src/robin/fixtures/stage_dashboard.html").read_text(encoding="utf-8")
+
+    async def _citation_pub(call_id, out_dict):      # on_research hook
+        try:
+            await _bus.publish_event("citation", {
+                "call_id": call_id,
+                "citations": out_dict.get("citations", []),
+            })
+        except Exception:
+            pass  # hook must never raise
+
+    async def _mail_pub(call_id, payload):           # on_outcome hook
+        try:
+            await _bus.publish_event("mail_draft", {
+                "call_id": call_id,
+                "summary": payload.get("summary", ""),
+                "confirmation": payload.get("confirmation"),
+                "channel": payload.get("channel"),
+            })
+        except Exception:
+            pass  # hook must never raise
+
+    _hooks = ExtensionHooks(
+        prompt_enrichers=_hooks.prompt_enrichers,
+        on_research=_hooks.on_research + (_citation_pub,),
+        on_outcome=_hooks.on_outcome + (_mail_pub,),
+        event_bus=_bus,
+    )
+
+    # --- OPTIONAL transcript-feed tier (collapse-cut #1; see collapse ladder) ---
+    # The citation + mail panels above are pure-W0-event_bus and need NO
+    # broadcaster. The TRANSCRIPT panel needs TurnBroadcaster fed by the
+    # outbound call's on_turn. main.py:_place builds make_place_negotiation_call
+    # WITHOUT on_turn, so feed it by overriding the place tool impl here —
+    # same pattern as W3's research override.
+    # make_place_negotiation_call already accepts on_turn (outbound.py:59-63).
+    from robin.outbound import make_place_negotiation_call as _mk_place
+    from robin.prompts import render_outbound_system_prompt as _ros
+
+    async def _place_with_turns(phone, member_name, citations):
+        _cites = _authoritative_citations(citations)
+        _impl = _mk_place(
+            client=_ap, registry=_registry,
+            agent_id=_settings.robin_agent_id,
+            from_number_id=_settings.from_number_id,
+            receptionist_to_number=_settings.receptionist_to_number,
+            outbound_system_prompt=_ros(_pack, _cites),
+            on_turn=_broadcaster.publish)
+        return await _impl(phone=phone, member_name=member_name,
+                           citations=citations)
+
+    _tool_impls["place_negotiation_call"] = _place_with_turns
+    # --- end optional transcript-feed tier ---
+# >>> end W4 dashboard wiring <<<
 # --- end sponsor extension wiring ---
 
 app = build_app(
@@ -130,3 +193,10 @@ app = build_app(
     law_html_path=LAW_HTML_PATH, llm=_llm, tool_impls=_tool_impls,
     system_prompt=render_inbound_system_prompt(_pack),
     hooks=_hooks)
+
+# >>> W4 stage mount <<<
+if os.environ.get("ROBIN_DASHBOARD_ENHANCED") == "1":
+    from robin.stage import make_stage_router
+    app.include_router(make_stage_router(
+        _broadcaster, event_bus=_bus, stage_html=_dashboard_html))
+# >>> end W4 stage mount <<<

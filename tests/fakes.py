@@ -1,4 +1,5 @@
 # tests/fakes.py
+import asyncio
 from dataclasses import dataclass
 
 
@@ -222,3 +223,33 @@ class FakeMossClient:
             raise self.query_raises
         return self.query_returns
 # --- end W3 ---
+
+
+# >>> W4 FakeEventBus <<<
+class FakeEventBus:
+    """Drop-in for EventBus in tests. Stores published events for assertion."""
+
+    def __init__(self) -> None:
+        self.published: list[dict] = []
+        self._queues: list[asyncio.Queue] = []
+
+    def subscribe(self) -> asyncio.Queue:
+        q: asyncio.Queue = asyncio.Queue(maxsize=64)
+        self._queues.append(q)
+        return q
+
+    def unsubscribe(self, q: asyncio.Queue) -> None:
+        try:
+            self._queues.remove(q)
+        except ValueError:
+            pass
+
+    async def publish_event(self, event: str, data: dict) -> None:
+        item = {"event": event, "data": data}
+        self.published.append(item)
+        for q in list(self._queues):
+            try:
+                q.put_nowait(item)
+            except asyncio.QueueFull:
+                pass
+# <<< end W4 FakeEventBus <<<
