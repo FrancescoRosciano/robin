@@ -63,3 +63,55 @@ async def test_run_turn_with_empty_hooks_output_identical_to_no_hooks():
         tool_impls={}, call_id=None)]
 
     assert out_with_hooks == out_no_hooks
+
+
+async def test_prompt_enrichers_append_in_registration_order():
+    """Two enrichers: first returns 'AAA', second returns 'BBB'.
+    effective_system must end with '\\n\\nAAA\\n\\nBBB' in that order."""
+    captured_systems: list[str] = []
+
+    class _CaptureLLM:
+        async def create(self, *, system, messages, tools):
+            captured_systems.append(system)
+            return _make_msg(["done"], "end_turn")
+
+    async def enricher_a(call_id):
+        return "AAA"
+
+    async def enricher_b(call_id):
+        return "BBB"
+
+    hooks = ExtensionHooks(prompt_enrichers=(enricher_a, enricher_b))
+    _ = [c async for c in run_turn(
+        "hi", [], system="BASE", llm=_CaptureLLM(),
+        tool_impls={}, call_id="c1", hooks=hooks)]
+
+    assert len(captured_systems) == 1
+    sys = captured_systems[0]
+    assert sys.endswith("\n\nAAA\n\nBBB"), f"Unexpected system: {sys!r}"
+    assert sys.startswith("BASE")
+
+
+async def test_prompt_enricher_returning_empty_string_is_skipped():
+    """An enricher returning '' must not add blank lines to the system prompt."""
+    captured_systems: list[str] = []
+
+    class _CaptureLLM:
+        async def create(self, *, system, messages, tools):
+            captured_systems.append(system)
+            return _make_msg(["done"], "end_turn")
+
+    async def enricher_empty(call_id):
+        return ""
+
+    async def enricher_real(call_id):
+        return "REAL"
+
+    hooks = ExtensionHooks(prompt_enrichers=(enricher_empty, enricher_real))
+    _ = [c async for c in run_turn(
+        "hi", [], system="BASE", llm=_CaptureLLM(),
+        tool_impls={}, call_id="c1", hooks=hooks)]
+
+    sys = captured_systems[0]
+    assert "REAL" in sys
+    assert "\n\n\n" not in sys   # no double-blank from empty return
