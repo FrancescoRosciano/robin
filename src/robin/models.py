@@ -12,6 +12,7 @@ class ContextPack:
     jurisdiction: str             # "US-CA"
     win_goal: str
     fallback_goal: str
+    email: str = ""          # W2: optional caller email; "" = skip send
 
 
 @dataclass(frozen=True)
