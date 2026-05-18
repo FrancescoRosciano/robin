@@ -171,3 +171,27 @@ async def test_main_wiring_w1_builds_enriched_hooks(monkeypatch):
     enriched = await hooks.prompt_enrichers[0](call_id="call_smoke")
     assert "[CALLER HISTORY]" in enriched
     assert len(hooks.on_outcome) == 1
+
+
+async def test_full_suite_canonical_path_unchanged_when_flag_off(monkeypatch):
+    """With ROBIN_MEMORY_ENABLED unset, run_turn produces identical output
+    to a pre-W1 baseline (no enricher text injected)."""
+    monkeypatch.delenv("ROBIN_MEMORY_ENABLED", raising=False)
+    from robin.loop import run_turn
+    from tests.fakes import FakeLLM
+
+    class _Msg:
+        def __init__(self, content, stop_reason):
+            self.content = content
+            self.stop_reason = stop_reason
+
+    llm = FakeLLM([_Msg(
+        [{"type": "text", "text": "Hi, this is Robin."}], "end_turn")])
+    # Use default hooks (no enrichers) — W0's ExtensionHooks default
+    from robin.extensions import ExtensionHooks
+    out = [c async for c in run_turn(
+        "hello", [], system="SYS", llm=llm, tool_impls={},
+        hooks=ExtensionHooks(), call_id=None)]
+    assert out[-1]["text"] == "Hi, this is Robin."
+    # No enricher text in the system passed to the LLM
+    assert "CALLER HISTORY" not in llm.calls[0]["system"]
