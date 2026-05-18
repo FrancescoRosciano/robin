@@ -374,4 +374,15 @@ def test_load_context_pack_email_absent_defaults_empty(tmp_path):
 
 
 async def test_flag_off_regression_no_side_effects(monkeypatch):
-    assert False, "not implemented"
+    """With flag absent, the hook is a pure no-op: no tasks, no logs from W2."""
+    monkeypatch.delenv("ROBIN_AGENTMAIL_ENABLED", raising=False)
+    monkeypatch.delenv("AGENTMAIL_API_KEY", raising=False)
+
+    import robin.integrations.agentmail as am_mod
+
+    hook = am_mod.make_email_outcome_hook(_pack("test@example.com"))
+    tasks_before = set(asyncio.all_tasks())
+    await hook(call_id="call-flag", payload=_DONE_PAYLOAD)
+    tasks_after = set(asyncio.all_tasks())
+
+    assert tasks_before == tasks_after, "flag-off hook spawned tasks"
