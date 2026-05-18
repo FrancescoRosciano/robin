@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Robin — Live Dashboard</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0a0a0a;
+    color: #f0f0f0;
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    padding-top: 52px;
+  }
+  #banner {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    background: #b91c1c;
+    color: #fff;
+    font-weight: bold;
+    font-size: 13px;
+    padding: 10px 16px;
+    z-index: 999;
+    text-align: center;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 12px;
+    padding: 12px;
+    height: calc(100vh - 52px);
+  }
+  @media (max-width: 700px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+  .panel {
+    background: #111;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-top: 3px solid transparent;
+  }
+  .panel-transcript { border-top-color: #f0f0f0; }
+  .panel-memory     { border-top-color: #8b5cf6; }
+  .panel-citation   { border-top-color: #3b82f6; }
+  .panel-mail       { border-top-color: #f59e0b; }
+  .panel-header {
+    padding: 10px 14px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-bottom: 1px solid #222;
+  }
+  .panel-transcript .panel-header { color: #f0f0f0; }
+  .panel-memory     .panel-header { color: #8b5cf6; }
+  .panel-citation   .panel-header { color: #3b82f6; }
+  .panel-mail       .panel-header { color: #f59e0b; }
+  .panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 14px;
+  }
+  .turn { margin-bottom: 6px; line-height: 1.5; }
+  .turn.agent { color: #60a5fa; }
+  .turn.user  { color: #a3e635; }
+  .placeholder {
+    color: #555;
+    font-style: italic;
+    margin-top: 8px;
+  }
+  .citation-block {
+    margin-bottom: 12px;
+    border-left: 3px solid #3b82f6;
+    padding-left: 10px;
+  }
+  .citation-block .statute { font-weight: 700; color: #93c5fd; font-size: 13px; }
+  .citation-block .quote   { color: #cbd5e1; margin: 4px 0; }
+  .citation-block a        { color: #60a5fa; font-size: 11px; }
+  .mail-summary   { color: #fde68a; font-weight: 600; margin-bottom: 8px; }
+  .mail-confirm   { color: #a3e635; font-size: 13px; }
+  .memory-recall  { color: #c4b5fd; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<div id="banner">
+  CONTROLLED DEMO &mdash; Robin's side is fully live. The receptionist
+  runs in a safe test environment (a briefed teammate); no real business is called.
+</div>
+
+<div class="grid">
+
+  <!-- Transcript panel (top-left) -->
+  <div class="panel panel-transcript">
+    <div class="panel-header">Live Transcript</div>
+    <div class="panel-body" id="transcript-body"></div>
+  </div>
+
+  <!-- Super Memory panel (top-right) -->
+  <div class="panel panel-memory">
+    <div class="panel-header">Super Memory Recall</div>
+    <div class="panel-body" id="memory-body">
+      <p class="placeholder">Super Memory recall will appear here when caller history is loaded.</p>
+    </div>
+  </div>
+
+  <!-- Moss Citation panel (bottom-left) -->
+  <div class="panel panel-citation">
+    <div class="panel-header">Moss Legal Citation</div>
+    <div class="panel-body" id="citation-body">
+      <p class="placeholder">Moss legal citation will appear here when Browser Use completes the statute search.</p>
+    </div>
+  </div>
+
+  <!-- Agent Mail panel (bottom-right) -->
+  <div class="panel panel-mail">
+    <div class="panel-header">Agent Mail</div>
+    <div class="panel-body" id="mail-body">
+      <p class="placeholder">Agent Mail confirmation draft will appear here after outcome is delivered.</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  var es = new EventSource('/stage/stream');
+
+  es.addEventListener('turn', function (e) {
+    var data = JSON.parse(e.data);
+    var div = document.createElement('div');
+    div.className = 'turn ' + (data.role === 'agent' ? 'agent' : 'user');
+    div.textContent = (data.role === 'agent' ? 'Robin: ' : 'Caller: ') + (data.text || '');
+    var body = document.getElementById('transcript-body');
+    body.appendChild(div);
+    div.scrollIntoView({behavior: 'smooth'});
+  });
+
+  es.addEventListener('citation', function (e) {
+    var data = JSON.parse(e.data);
+    var body = document.getElementById('citation-body');
+    body.innerHTML = '';
+    (data.citations || []).forEach(function (c) {
+      var block = document.createElement('div');
+      block.className = 'citation-block';
+      block.innerHTML =
+        '<div class="statute">' + esc(c.citation || '') + '</div>' +
+        '<div class="quote">' + esc(c.operative_quote || '') + '</div>' +
+        (c.source_url ? '<a href="' + esc(c.source_url) + '" target="_blank">source</a>' : '');
+      body.appendChild(block);
+    });
+    if (!data.citations || data.citations.length === 0) {
+      body.innerHTML = '<p class="placeholder">No citations received.</p>';
+    }
+  });
+
+  es.addEventListener('memory', function (e) {
+    var data = JSON.parse(e.data);
+    var body = document.getElementById('memory-body');
+    body.innerHTML = '<div class="memory-recall">' + esc(data.recall || data.summary || '') + '</div>';
+  });
+
+  es.addEventListener('mail_draft', function (e) {
+    var data = JSON.parse(e.data);
+    var body = document.getElementById('mail-body');
+    body.innerHTML =
+      '<div class="mail-summary">' + esc(data.summary || '') + '</div>' +
+      (data.confirmation ? '<div class="mail-confirm">Confirmation: ' + esc(data.confirmation) + '</div>' : '');
+  });
+
+  es.onerror = function () {
+    /* EventSource auto-reconnects on error — no action needed */
+  };
+
+  function esc(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+}());
+</script>
+
+</body>
+</html>

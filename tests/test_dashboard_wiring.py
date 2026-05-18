@@ -10,7 +10,6 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from robin.broadcast import TurnBroadcaster
-from robin.event_bus import EventBus
 from robin.stage import _STAGE_HTML, make_stage_router
 
 _DASHBOARD_PATH = pathlib.Path("src/robin/fixtures/stage_dashboard.html")
