@@ -44,4 +44,7 @@ def load_context_pack(path: str) -> ContextPack:
                 f"{key} must be E.164 (e.g. +15550000001), got: {raw[key]!r}"
             )
 
-    return ContextPack(**{k: raw[k] for k in _FIELDS})
+    return ContextPack(
+        **{k: raw[k] for k in _FIELDS},
+        email=raw.get("email", ""),          # W2: optional, default ""
+    )

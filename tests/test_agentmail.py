@@ -321,19 +321,56 @@ async def test_inbox_created_once_across_two_calls(monkeypatch):
 
 
 def test_context_pack_accepts_email():
-    assert False, "not implemented"
+    from robin.models import ContextPack
+    pack = ContextPack(
+        caller_name="A", callback_number="+15550000001",
+        target_name="B", target_display_number="C",
+        receptionist_to_number="+15550000002",
+        jurisdiction="US-CA", win_goal="w", fallback_goal="f",
+        email="test@example.com",
+    )
+    assert pack.email == "test@example.com"
 
 
 def test_context_pack_email_defaults_to_empty():
-    assert False, "not implemented"
+    from robin.models import ContextPack
+    pack = ContextPack(
+        caller_name="A", callback_number="+15550000001",
+        target_name="B", target_display_number="C",
+        receptionist_to_number="+15550000002",
+        jurisdiction="US-CA", win_goal="w", fallback_goal="f",
+    )
+    assert pack.email == ""
 
 
 def test_load_context_pack_passes_email(tmp_path):
-    assert False, "not implemented"
+    from robin.context_pack import load_context_pack
+    pack_data = {
+        "caller_name": "Demo", "callback_number": "+15550000001",
+        "target_name": "24 Hour Gym", "target_display_number": "415-776-2200",
+        "receptionist_to_number": "+15550000002",
+        "jurisdiction": "US-CA", "win_goal": "cancel", "fallback_goal": "cancel",
+        "email": "test@example.com",
+    }
+    p = tmp_path / "cp.json"
+    p.write_text(json.dumps(pack_data))
+    pack = load_context_pack(str(p))
+    assert pack.email == "test@example.com"
 
 
 def test_load_context_pack_email_absent_defaults_empty(tmp_path):
-    assert False, "not implemented"
+    """context_pack.json without 'email' key → pack.email == ""."""
+    from robin.context_pack import load_context_pack
+    pack_data = {
+        "caller_name": "Demo", "callback_number": "+15550000001",
+        "target_name": "24 Hour Gym", "target_display_number": "415-776-2200",
+        "receptionist_to_number": "+15550000002",
+        "jurisdiction": "US-CA", "win_goal": "cancel", "fallback_goal": "cancel",
+    }
+    p = tmp_path / "cp.json"
+    p.write_text(json.dumps(pack_data))
+    pack = load_context_pack(str(p))
+    assert pack.email == ""
 
 
 async def test_flag_off_regression_no_side_effects(monkeypatch):
