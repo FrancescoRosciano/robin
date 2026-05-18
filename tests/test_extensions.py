@@ -141,3 +141,54 @@ async def test_raising_enricher_is_swallowed_and_turn_completes():
     assert any("interim" not in c for c in out)
     # The good enricher still ran
     assert called == ["good"]
+
+
+async def test_on_research_hook_fires_with_exact_payload():
+    """on_research must be called with (call_id, out_dict) when research returns OK."""
+    received: list[tuple] = []
+
+    async def research_hook(call_id, payload):
+        received.append((call_id, payload))
+
+    # Simulate what _record_session sees
+    out = {"status": "OK", "citations": [{"citation": "FTC §425", "operative_quote": "easy cancel"}]}
+    hooks = ExtensionHooks(on_research=(research_hook,))
+
+    await _record_session("call_42", "research_cancellation_law", {}, out, hooks)
+
+    assert len(received) == 1
+    cid, payload = received[0]
+    assert cid == "call_42"
+    # payload is the full out dict
+    assert payload is out
+    assert payload["status"] == "OK"
+
+
+async def test_on_research_hook_does_not_fire_when_status_not_ok():
+    """on_research must NOT fire if research returns status != 'OK'."""
+    received: list = []
+
+    async def research_hook(call_id, payload):
+        received.append(payload)
+
+    out = {"status": "ERR", "citations": []}
+    hooks = ExtensionHooks(on_research=(research_hook,))
+
+    await _record_session("call_42", "research_cancellation_law", {}, out, hooks)
+
+    assert received == []
+
+
+async def test_on_research_hook_does_not_fire_for_other_tools():
+    """on_research must not fire for place_negotiation_call or deliver_result."""
+    received: list = []
+
+    async def research_hook(call_id, payload):
+        received.append(payload)
+
+    hooks = ExtensionHooks(on_research=(research_hook,))
+
+    await _record_session("c1", "place_negotiation_call", {}, {"call_id": "x"}, hooks)
+    await _record_session("c1", "deliver_result", {"summary": "done"}, {"delivered": True}, hooks)
+
+    assert received == []
