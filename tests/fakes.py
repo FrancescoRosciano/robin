@@ -54,3 +54,55 @@ class FakeAgentPhoneClient:
 
     async def get_recording_url(self, call_id):
         return f"https://rec.example/{call_id}.mp3"
+
+
+# --- W3: FakeMossClient ---
+from dataclasses import dataclass, field as dc_field
+
+@dataclass
+class FakeMossDoc:
+    id: str
+    text: str
+    score: float = 1.0
+
+@dataclass
+class FakeMossQueryResult:
+    docs: list  # list[FakeMossDoc]
+    time_taken_ms: int = 5
+
+class FakeMossClient:
+    """Scriptable stand-in for moss.MossClient.
+
+    list_indexes_returns: list of index names to return from list_indexes().
+    query_returns:        FakeMossQueryResult to return from query().
+    create_raises:        if set, create_index() raises this.
+    query_raises:         if set, query() raises this.
+    """
+    def __init__(
+        self,
+        list_indexes_returns: list[str] | None = None,
+        query_returns: FakeMossQueryResult | None = None,
+        create_raises: Exception | None = None,
+        query_raises: Exception | None = None,
+    ):
+        self.list_indexes_returns = list_indexes_returns or []
+        self.query_returns = query_returns or FakeMossQueryResult(docs=[])
+        self.create_raises = create_raises
+        self.query_raises = query_raises
+        self.created: list[dict] = []     # records create_index() calls
+        self.queried: list[dict] = []     # records query() calls
+
+    async def list_indexes(self) -> list[str]:
+        return list(self.list_indexes_returns)
+
+    async def create_index(self, name: str, docs: list) -> None:
+        if self.create_raises:
+            raise self.create_raises
+        self.created.append({"name": name, "docs": docs})
+
+    async def query(self, index_name: str, query_str: str, options=None):
+        self.queried.append({"index": index_name, "query": query_str, "options": options})
+        if self.query_raises:
+            raise self.query_raises
+        return self.query_returns
+# --- end W3 ---
