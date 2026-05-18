@@ -135,12 +135,31 @@ def _build_corpus() -> list:  # list[DocumentInfo]
 
     NEVER derive or paraphrase the text. NEVER add a fourth document.
     """
-    from moss import DocumentInfo  # type: ignore
+    DocumentInfo = _resolve_document_info()
     return [
         DocumentInfo(id="rosca-8403",       text=_ROSCA_TEXT),
         DocumentInfo(id="cal-civ-1812-85",  text=_CAL_CIV_TEXT),
         DocumentInfo(id="cal-bpc-17602",    text=_CAL_BPC_TEXT),
     ]
+
+
+def _resolve_document_info() -> Any:
+    """Real ``moss.DocumentInfo`` when the SDK is installed, else a minimal
+    structurally-identical stand-in (``id`` + ``text``). The corpus content
+    is byte-identical either way; this only lets the corpus be built and
+    integrity-tested in environments where the moss SDK is absent."""
+    try:
+        from moss import DocumentInfo  # type: ignore
+        return DocumentInfo
+    except ImportError:
+        from dataclasses import dataclass
+
+        @dataclass(frozen=True)
+        class _DocumentInfo:
+            id: str
+            text: str
+
+        return _DocumentInfo
 
 
 # ---------------------------------------------------------------------------

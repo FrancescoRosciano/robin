@@ -118,3 +118,40 @@ async def test_moss_research_query_error_falls_back(monkeypatch):
     result = await ms.moss_research("California")
     # Fallback result is returned unchanged
     assert result == fallback_result
+
+
+@pytest.mark.asyncio
+async def test_setup_script_skips_when_index_exists(monkeypatch, capsys):
+    """setup_moss_statutes.main() skips create_index when index already exists."""
+    from tests.fakes import FakeMossClient
+    import scripts.setup_moss_statutes as setup
+
+    fake = FakeMossClient(list_indexes_returns=["robin-statutes"])
+    monkeypatch.setattr(setup, "_build_client", lambda: fake)
+    monkeypatch.setenv("MOSS_INDEX_NAME", "robin-statutes")
+
+    await setup.main()
+
+    assert fake.created == []   # create_index was NOT called
+    out = capsys.readouterr().out
+    assert "already exists" in out or "skipping" in out.lower()
+
+
+@pytest.mark.asyncio
+async def test_setup_script_creates_index_when_missing(monkeypatch, capsys):
+    """setup_moss_statutes.main() calls create_index with exactly 3 documents."""
+    from tests.fakes import FakeMossClient
+    import scripts.setup_moss_statutes as setup
+
+    fake = FakeMossClient(list_indexes_returns=[])   # index absent
+    monkeypatch.setattr(setup, "_build_client", lambda: fake)
+    monkeypatch.setenv("MOSS_INDEX_NAME", "robin-statutes")
+
+    await setup.main()
+
+    assert len(fake.created) == 1
+    assert fake.created[0]["name"] == "robin-statutes"
+    docs = fake.created[0]["docs"]
+    assert len(docs) == 3   # exactly the three verified statutes
+    ids = {d.id for d in docs}
+    assert ids == {"rosca-8403", "cal-civ-1812-85", "cal-bpc-17602"}
