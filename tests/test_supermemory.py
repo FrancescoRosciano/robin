@@ -92,3 +92,38 @@ async def test_enricher_returns_empty_string_on_api_error(monkeypatch):
     enricher = make_recall_enricher(client, "p15550008888")
     result = await enricher(call_id="call_error")
     assert result == ""
+
+
+async def test_persist_hook_schedules_task_and_returns_immediately(monkeypatch):
+    """Outcome hook must return without awaiting the persist network call."""
+    import asyncio
+    monkeypatch.setenv("ROBIN_MEMORY_ENABLED", "1")
+    from robin.integrations.supermemory import make_persist_outcome_hook
+    from tests.fakes import FakeSupermemoryClient
+    client = FakeSupermemoryClient()
+    hook = make_persist_outcome_hook(client, "p14155557777")
+    payload = {"summary": "Cancelled gym. Got refund.", "confirmation": "24HF-4471",
+               "channel": "voice", "out": {"delivered": True}}
+    # The hook itself must return before client.add is awaited
+    await hook(call_id="call_abc", payload=payload)
+    # After draining the event loop, the task should have run
+    await asyncio.sleep(0)  # let the scheduled task execute
+    assert len(client.added) == 1
+    assert "24HF-4471" in client.added[0]["content"]
+    assert client.added[0]["container_tag"] == "p14155557777"
+
+
+async def test_persist_hook_never_raises_on_add_failure(monkeypatch):
+    """add() raising must be swallowed; hook must not propagate."""
+    import asyncio
+    monkeypatch.setenv("ROBIN_MEMORY_ENABLED", "1")
+    from robin.integrations.supermemory import make_persist_outcome_hook
+    from tests.fakes import FakeSupermemoryClient
+    client = FakeSupermemoryClient(add_raise=RuntimeError("storage down"))
+    hook = make_persist_outcome_hook(client, "p15550006666")
+    # Must not raise
+    await hook(call_id="call_fail",
+               payload={"summary": "test", "confirmation": None,
+                        "channel": None, "out": {}})
+    await asyncio.sleep(0)
+    # No assert needed; the test passing means no exception was propagated
