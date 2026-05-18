@@ -112,7 +112,16 @@ if os.environ.get("ROBIN_AGENTMAIL_ENABLED") == "1":
         event_bus=_hooks.event_bus,
     )
 # >>> end W2 <<<
-# >>> W3 moss wiring        <<<   (added on feat/moss-statute-search)
+# >>> W3 moss-statute-search wiring <<<
+if os.environ.get("MOSS_PROJECT_ID") and os.environ.get("MOSS_PROJECT_KEY"):
+    from robin.integrations.moss_search import moss_research, set_fallback_deps
+    set_fallback_deps(
+        browser=_browser,
+        law_url=f"{_settings.public_base_url}/fixture/law.html",
+        law_html_path=LAW_HTML_PATH,
+    )
+    _tool_impls["research_cancellation_law"] = moss_research
+# >>> end W3 <<<
 # >>> W4 dashboard wiring   <<<   (added on feat/dashboard-flagship)
 # --- end sponsor extension wiring ---
 

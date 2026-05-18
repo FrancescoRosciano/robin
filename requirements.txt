@@ -9,3 +9,5 @@ svix>=1.0
 supermemory>=3.42.0
 # W2: AgentMail close-loop
 agentmail>=0.5.0
+# W3: Moss statute search
+moss>=1.0.0
