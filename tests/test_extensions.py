@@ -43,3 +43,23 @@ def test_extension_hooks_callable_aliases_exist():
     assert PromptEnricher is not None
     assert ResearchHook is not None
     assert OutcomeHook is not None
+
+
+async def test_run_turn_with_empty_hooks_output_identical_to_no_hooks():
+    """run_turn with ExtensionHooks() must yield the same chunks as today's baseline.
+
+    The baseline is captured inline: one interim ack, then the scripted final text.
+    """
+    llm = FakeLLM([_make_msg(["Hi, I'm Robin."], "end_turn")])
+    hooks = ExtensionHooks()
+
+    out_with_hooks = [c async for c in run_turn(
+        "hello", [], system="SYS", llm=llm,
+        tool_impls={}, call_id=None, hooks=hooks)]
+
+    llm2 = FakeLLM([_make_msg(["Hi, I'm Robin."], "end_turn")])
+    out_no_hooks = [c async for c in run_turn(
+        "hello", [], system="SYS", llm=llm2,
+        tool_impls={}, call_id=None)]
+
+    assert out_with_hooks == out_no_hooks

@@ -12,6 +12,7 @@ import time
 from typing import AsyncGenerator, Callable
 
 from robin import obs, session
+from robin.extensions import ExtensionHooks
 from robin.tools import TOOL_SCHEMAS
 
 MAX_TOOL_TURNS = 6
@@ -91,13 +92,16 @@ def _history_role(h: dict) -> str:
     return "user"
 
 
-def _record_session(call_id: str | None, name: str, tool_input: dict,
-                    out: object) -> None:
+async def _record_session(call_id: str | None, name: str, tool_input: dict,
+                          out: object, hooks: ExtensionHooks) -> None:
     """Persist tool outcomes into the per-call session so the NEXT webhook
     turn remembers them (AgentPhone's recentHistory carries no tool state).
     Deliberate, documented coupling to the three stable tool names — this
     is what stops Robin re-researching every turn and lets it progress to
-    the dial. Best-effort: never raise into the call turn."""
+    the dial. Best-effort: never raise into the call turn.
+
+    After the session.* persist, dispatches the W0 extension hooks
+    (best-effort, each individually guarded). Empty hook tuples == no-op."""
     if not isinstance(out, dict):
         return
     try:
@@ -117,10 +121,36 @@ def _record_session(call_id: str | None, name: str, tool_input: dict,
         obs.log_event("session_record_error", call_id=call_id, name=name,
                        err=f"{type(exc).__name__}: {exc}")
 
+    # --- W0 outcome hooks (best-effort, no-op when empty) ---
+    if name == "research_cancellation_law" and out.get("status") == "OK":
+        for _hook in hooks.on_research:
+            try:
+                await _hook(call_id, out)
+            except Exception as _exc:  # noqa: BLE001
+                obs.log_event("extension_hook_error", call_id=call_id,
+                               hook=repr(_hook),
+                               err=f"{type(_exc).__name__}: {_exc}")
+    elif name == "deliver_result" and out.get("delivered"):
+        _payload = {
+            "summary": str(tool_input.get("summary", "")),
+            "confirmation": tool_input.get("confirmation"),
+            "channel": tool_input.get("channel"),
+            "out": out,
+        }
+        for _hook in hooks.on_outcome:
+            try:
+                await _hook(call_id, _payload)
+            except Exception as _exc:  # noqa: BLE001
+                obs.log_event("extension_hook_error", call_id=call_id,
+                               hook=repr(_hook),
+                               err=f"{type(_exc).__name__}: {_exc}")
+    # --- end W0 outcome hooks ---
+
 
 async def run_turn(transcript: str, history: list, *, system: str, llm,
                    tool_impls: dict[str, Callable],
-                   call_id: str | None = None
+                   call_id: str | None = None,
+                   hooks: ExtensionHooks = ExtensionHooks()
                    ) -> AsyncGenerator[dict, None]:
     """Yield NDJSON-ready dicts: one interim ack, then the final text."""
     yield {"text": _INTERIM_ACK, "interim": True}
@@ -136,6 +166,21 @@ async def run_turn(transcript: str, history: list, *, system: str, llm,
 
     mem = session.summary_for_prompt(call_id)
     effective_system = f"{system}\n\n{mem}" if mem else system
+    # --- W0 prompt enrichers (best-effort, no-op when empty) ---
+    if hooks.prompt_enrichers:
+        _extra: list[str] = []
+        for _enricher in hooks.prompt_enrichers:
+            try:
+                _piece = await _enricher(call_id)
+                if _piece:
+                    _extra.append(_piece)
+            except Exception as _exc:  # noqa: BLE001
+                obs.log_event("extension_hook_error", call_id=call_id,
+                               hook=repr(_enricher),
+                               err=f"{type(_exc).__name__}: {_exc}")
+        if _extra:
+            effective_system = effective_system + "\n\n" + "\n\n".join(_extra)
+    # --- end W0 prompt enrichers ---
     obs.log_event("turn_start", call_id=call_id,
                    history=len(messages) - 1, mem=bool(mem))
 
@@ -216,7 +261,7 @@ async def run_turn(transcript: str, history: list, *, system: str, llm,
                                   ms=int((time.monotonic() - t0) * 1000),
                                   err=f"{type(exc).__name__}: {exc}")
                     out = {"error": f"tool {name} failed: {exc!s}"[:200]}
-            _record_session(call_id, name, tool_input, out)
+            await _record_session(call_id, name, tool_input, out, hooks)
             results.append({"type": "tool_result", "tool_use_id": tu["id"],
                             "content": str(out)})
         messages.append({"role": "user", "content": results})
