@@ -115,3 +115,29 @@ async def test_prompt_enricher_returning_empty_string_is_skipped():
     sys = captured_systems[0]
     assert "REAL" in sys
     assert "\n\n\n" not in sys   # no double-blank from empty return
+
+
+async def test_raising_enricher_is_swallowed_and_turn_completes():
+    """An enricher that raises must not crash the turn; the next enricher still runs."""
+    called = []
+
+    async def bad_enricher(call_id):
+        raise ValueError("enricher kaboom")
+
+    async def good_enricher(call_id):
+        called.append("good")
+        return "GOOD"
+
+    class _LLM:
+        async def create(self, *, system, messages, tools):
+            return _make_msg(["done"], "end_turn")
+
+    hooks = ExtensionHooks(prompt_enrichers=(bad_enricher, good_enricher))
+    out = [c async for c in run_turn(
+        "hi", [], system="BASE", llm=_LLM(),
+        tool_impls={}, call_id="c1", hooks=hooks)]
+
+    # Turn must still deliver a final chunk
+    assert any("interim" not in c for c in out)
+    # The good enricher still ran
+    assert called == ["good"]
