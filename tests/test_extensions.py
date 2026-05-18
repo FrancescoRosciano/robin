@@ -233,3 +233,34 @@ async def test_on_outcome_hook_does_not_fire_when_delivered_false():
     await _record_session("c1", "deliver_result", {"summary": "x"}, {}, hooks)
 
     assert received == []
+
+
+async def test_raising_research_hook_is_swallowed_next_hook_still_runs():
+    """A crashing on_research hook must not propagate; subsequent hooks still execute."""
+    called = []
+
+    async def bad_hook(call_id, payload):
+        raise RuntimeError("hook boom")
+
+    async def good_hook(call_id, payload):
+        called.append("good")
+
+    hooks = ExtensionHooks(on_research=(bad_hook, good_hook))
+    out = {"status": "OK", "citations": []}
+
+    # Must not raise
+    await _record_session("c1", "research_cancellation_law", {}, out, hooks)
+
+    assert called == ["good"]
+
+
+async def test_raising_outcome_hook_does_not_affect_turn_completion():
+    """A crashing on_outcome hook must not prevent _record_session from returning."""
+    async def bad_outcome_hook(call_id, payload):
+        raise ValueError("outcome boom")
+
+    hooks = ExtensionHooks(on_outcome=(bad_outcome_hook,))
+    out = {"delivered": True}
+
+    # Must not raise and must return without error
+    await _record_session("c1", "deliver_result", {"summary": "done"}, out, hooks)
