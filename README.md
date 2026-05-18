@@ -19,6 +19,12 @@
 
 <sub>Built fresh at the YC <strong>AgentPhone "Call My Agent"</strong> Hackathon · 2026-05-17</sub>
 
+<br/><br/>
+
+## 📞 Call Robin now — `+1 (567) 229-6485`
+
+<sub>Judges: dial it and tell Robin a call you've been avoiding. It runs discovery, researches your leverage live, and acts. (US number; carrier rates may apply.)</sub>
+
 </div>
 
 ---
@@ -121,15 +127,28 @@ is pure, unit-tested, and runs without a phone.
 
 ---
 
-## The stack
+## Sponsors — what we used and how
+
+Robin's submitted build (`main`) runs on **two sponsor platforms**, both
+load-bearing — remove either and the demo doesn't work.
+
+| Sponsor | Role | How Robin uses it — concretely |
+|---|---|---|
+| **[AgentPhone](https://agentphone.ai)** | The phone (host platform) | **Webhook mode.** AgentPhone POSTs every inbound voice turn to our FastAPI server (`agent.message`, `channel:"voice"`); Robin streams NDJSON (`interim` → final) back to drive the discovery dialogue + DTMF (press 1 / press 2). Dial-out via `POST /v1/calls`; the outbound transcript is consumed over the SSE stream (`GET /v1/calls/{id}/transcript/stream`) and the recording via `GET /v1/calls/{id}`. Webhook deliveries are HMAC-verified (constant-time, over raw bytes). Wired in `src/robin/main.py`, `agentphone_client.py`, `outbound.py`, `signature.py`. |
+| **[Browser Use](https://browser-use.com)** | The hands (live web research) | The `research_cancellation_law` tool (`src/robin/tools.py`) calls `browser-use-sdk` **live, mid-call**, to pull the actual cancellation statutes Robin then cites in the negotiation — leverage fetched in real time, never improvised or hard-coded. Wired in `src/robin/main.py:5,32` + `tools.py`. |
+
+> Additional sponsor integrations (Supermemory caller-recall, AgentMail
+> close-the-loop email) are built and green on feature branches and will
+> land on `main` as they're finalized — this README tracks only what is
+> live in the submitted build, by design.
+
+### The rest of the stack
 
 | Layer | Tech |
 |---|---|
-| **The phone** | [AgentPhone](https://agentphone.ai) — webhook mode (host platform, mandatory) |
-| **The hands** | [Browser Use](https://browser-use.com) — live web actions & research |
-| **The brain** | Claude tool-call loop (Anthropic) |
+| **The brain** | Claude tool-call loop (Anthropic) — reasoning/dialogue engine |
 | **The server** | FastAPI · NDJSON streaming · HMAC-verified webhooks |
-| **The runtime** | Python 3.12, fully containerized |
+| **The runtime** | Python 3.12, fully containerized (Docker) |
 
 ---
 
