@@ -88,3 +88,33 @@ async def test_moss_research_empty_result_falls_back(monkeypatch):
     result = await ms.moss_research("California")
     assert result["status"] == "OK"
     assert len(result["citations"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_moss_research_query_error_falls_back(monkeypatch):
+    """A Moss query exception triggers Browser Use fallback."""
+    import robin.integrations.moss_search as ms
+    from tests.fakes import FakeMossClient, FakeMossQueryResult
+
+    fake_client = FakeMossClient(
+        list_indexes_returns=["robin-statutes"],
+        query_raises=RuntimeError("moss timeout"),
+    )
+    ms._client = fake_client
+    ms._index_name = "robin-statutes"
+    ms._index_ready = True
+
+    fallback_result = {"citations": [], "status": "FAILED", "error": "bu failed"}
+
+    async def _fake_bu(jurisdiction, *, browser, law_url, law_html_path=None):
+        return fallback_result
+
+    monkeypatch.setattr("robin.integrations.moss_search._fallback_browser", object())
+    monkeypatch.setattr("robin.integrations.moss_search._fallback_law_url", "http://test")
+
+    import robin.tools as tools_mod
+    monkeypatch.setattr(tools_mod, "research_cancellation_law", _fake_bu)
+
+    result = await ms.moss_research("California")
+    # Fallback result is returned unchanged
+    assert result == fallback_result
