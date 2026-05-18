@@ -125,18 +125,28 @@ is pure, unit-tested, and runs without a phone.
 
 ## Sponsors — what we used and how
 
-Robin's submitted build (`main`) runs on **two sponsor platforms**, both
-load-bearing — remove either and the demo doesn't work.
+Robin's **live demo** is load-bearing on **two sponsor platforms** —
+remove either and the demo doesn't work.
 
 | Sponsor | Role | How Robin uses it — concretely |
 |---|---|---|
 | **[AgentPhone](https://agentphone.ai)** | The phone (host platform) | **Webhook mode.** AgentPhone POSTs every inbound voice turn to our FastAPI server (`agent.message`, `channel:"voice"`); Robin streams NDJSON (`interim` → final) back to drive the discovery dialogue + DTMF (press 1 / press 2). Dial-out via `POST /v1/calls`; the outbound transcript is consumed over the SSE stream (`GET /v1/calls/{id}/transcript/stream`) and the recording via `GET /v1/calls/{id}`. Webhook deliveries are HMAC-verified (constant-time, over raw bytes). Wired in `src/robin/main.py`, `agentphone_client.py`, `outbound.py`, `signature.py`. |
 | **[Browser Use](https://browser-use.com)** | The hands (live web research) | The `research_cancellation_law` tool (`src/robin/tools.py`) calls `browser-use-sdk` **live, mid-call**, to pull the actual cancellation statutes Robin then cites in the negotiation — leverage fetched in real time, never improvised or hard-coded. Wired in `src/robin/main.py:5,32` + `tools.py`. |
 
-> Additional sponsor integrations (Supermemory caller-recall, AgentMail
-> close-the-loop email) are built and green on feature branches and will
-> land on `main` as they're finalized — this README tracks only what is
-> live in the submitted build, by design.
+**Also merged on `main`** — three more sponsor integrations + a live
+judge dashboard, each behind its own flag, **off by default** so the
+canonical demo stays byte-identical:
+
+| Sponsor | Integration | Flag |
+|---|---|---|
+| **[Super Memory](https://supermemory.ai)** | Cross-call caller recall — a returning caller is greeted with their prior outcome + the tactic that worked (`src/robin/integrations/supermemory.py`) | `ROBIN_MEMORY_ENABLED` |
+| **[AgentMail](https://agentmail.to)** | Closes the loop in writing — confirmation email + drafted regulator-complaint on a won cancellation (`src/robin/integrations/agentmail.py`) | `ROBIN_AGENTMAIL_ENABLED` |
+| **[Moss](https://moss.dev)** | Sub-10ms semantic lookup over the *pre-verified* statute corpus (Browser Use fallback; corpus is the locked verbatim statutes only) (`src/robin/integrations/moss_search.py`) | `MOSS_PROJECT_ID` + `MOSS_PROJECT_KEY` |
+| **Live judge dashboard** | Four-panel `/stage` projector — live transcript + Moss citation + memory recall + AgentMail artifact, real-time SSE (`src/robin/event_bus.py`) | `ROBIN_DASHBOARD_ENHANCED` |
+
+All four land via an inert `ExtensionHooks` seam (`src/robin/extensions.py`):
+with every flag unset, the gym-cancel path is byte-identical to the
+two-platform demo build. Full suite: **354 tests green**.
 
 ### The rest of the stack
 
