@@ -57,7 +57,7 @@ class FakeAgentPhoneClient:
 
 
 # --- W3: FakeMossClient ---
-from dataclasses import dataclass, field as dc_field
+# (dataclass is imported at module top.)
 
 @dataclass
 class FakeMossDoc:

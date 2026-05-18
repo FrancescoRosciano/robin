@@ -55,7 +55,7 @@ _project_key = os.environ.get("MOSS_PROJECT_KEY", "")
 
 if _project_id and _project_key:
     try:
-        from moss import MossClient, DocumentInfo, QueryOptions  # type: ignore
+        from moss import MossClient  # type: ignore
         _client = MossClient(_project_id, _project_key)
     except ImportError:
         obs.log_event("moss_disabled", reason="import_error")

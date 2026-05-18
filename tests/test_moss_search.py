@@ -1,4 +1,3 @@
-import os, importlib, sys
 import pytest
 
 
@@ -94,7 +93,7 @@ async def test_moss_research_empty_result_falls_back(monkeypatch):
 async def test_moss_research_query_error_falls_back(monkeypatch):
     """A Moss query exception triggers Browser Use fallback."""
     import robin.integrations.moss_search as ms
-    from tests.fakes import FakeMossClient, FakeMossQueryResult
+    from tests.fakes import FakeMossClient
 
     fake_client = FakeMossClient(
         list_indexes_returns=["robin-statutes"],
@@ -171,3 +170,17 @@ def test_corpus_contains_exactly_three_locked_statutes():
     assert len(docs) == 3
     for d in docs:
         assert len(d.text) > 100, f"doc {d.id} text suspiciously short"
+
+
+def test_flag_off_canonical_path_unchanged(monkeypatch):
+    """With MOSS creds absent, moss_search._client is None (no SDK activity)."""
+    import sys
+    monkeypatch.delenv("MOSS_PROJECT_ID", raising=False)
+    monkeypatch.delenv("MOSS_PROJECT_KEY", raising=False)
+
+    # Remove cached module so next import re-evaluates env
+    sys.modules.pop("robin.integrations.moss_search", None)
+
+    import robin.integrations.moss_search as ms
+    assert ms._client is None
+    assert ms._index_ready is False
