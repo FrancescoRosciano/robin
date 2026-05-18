@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>ROBIN — anatomy of one call</title>
+<meta name="description" content="One Robin call in 4 phases: tell it the task · get context & plan · make the call · report back — everything in parallel." />
+<meta name="theme-color" content="#0b0b0d" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@500;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0b0b0d; --ink:#f4f1ea; --accent:#ff5c00; --teal:#1fb8a8;
+    --amber:#ffb000; --muted:#6b6b72; --hairline:rgba(244,241,234,.12);
+    --display:"Anton","Arial Narrow",Impact,sans-serif;
+    --body:"Archivo","Helvetica Neue",Arial,sans-serif;
+    --mono:"Space Mono",ui-monospace,Menlo,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--body);
+    -webkit-font-smoothing:antialiased;overflow:hidden}
+  .grain,.vignette{position:fixed;inset:0;pointer-events:none;z-index:90}
+  .grain{opacity:.045;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>")}
+  .vignette{z-index:89;background:radial-gradient(125% 100% at 50% 38%,transparent 40%,rgba(0,0,0,.6) 100%)}
+
+  .stage{position:relative;width:100vw;height:100dvh;display:flex;flex-direction:column;
+    padding:clamp(.8rem,1.9vh,1.4rem) clamp(1rem,3vw,2.6rem);gap:clamp(.45rem,1.2vh,.85rem);z-index:1}
+
+  /* ── header ── */
+  header{display:flex;align-items:flex-end;justify-content:space-between;gap:1.2rem;flex:0 0 auto}
+  .mark{font-family:var(--display);font-size:clamp(1rem,1.7vw,1.35rem);letter-spacing:.32em;color:var(--ink);opacity:.62}
+  .mark .dot{color:var(--accent)}
+  .title{font-family:var(--display);text-transform:uppercase;text-align:center;line-height:.92}
+  .title b{display:block;font-size:clamp(1.2rem,2.7vw,2.2rem);letter-spacing:.02em}
+  .title span{font-family:var(--mono);font-size:clamp(.52rem,.95vw,.7rem);letter-spacing:.32em;color:var(--muted);text-transform:uppercase}
+  .legend{display:flex;flex-direction:column;gap:.32rem;font-family:var(--mono);font-size:clamp(.48rem,.82vw,.64rem);letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+  .legend i{display:inline-block;width:20px;height:0;vertical-align:middle;margin-right:.55em}
+  .legend .live i{border-top:3px solid var(--accent);box-shadow:0 0 8px rgba(255,92,0,.6)}
+  .legend .ext i{border-top:2px dashed var(--teal)}
+  .legend .par{color:var(--amber)}
+
+  .pipe{flex:1 1 auto;position:relative;display:flex;flex-direction:column;justify-content:center;gap:clamp(.45rem,1.3vh,.95rem);min-height:0}
+
+  /* ── 4 phase bands (the grouping) ── */
+  .phases{display:grid;grid-template-columns:repeat(9,1fr);gap:clamp(.4rem,1vw,.85rem);flex:0 0 auto}
+  .phase{position:relative;border:1px solid var(--hairline);border-radius:12px;
+    background:#0f0f13;padding:clamp(.4rem,1vh,.7rem) clamp(.5rem,.9vw,.9rem);
+    display:flex;flex-direction:column;gap:.1rem;transition:.4s;overflow:hidden}
+  .phase::after{content:"";position:absolute;left:14px;right:14px;bottom:0;height:2px;
+    background:var(--hairline);transition:.4s}
+  .phase .pn{font-family:var(--mono);font-size:.56rem;letter-spacing:.26em;color:var(--muted)}
+  .phase b{font-family:var(--display);text-transform:uppercase;letter-spacing:.02em;
+    font-size:clamp(.85rem,1.5vw,1.32rem);line-height:.98;color:var(--ink)}
+  .phase .ps{font-family:var(--mono);font-size:clamp(.46rem,.78vw,.62rem);letter-spacing:.04em;color:var(--muted)}
+  .phase.on{border-color:var(--accent);background:#16110d;
+    box-shadow:0 0 0 1px var(--accent),0 12px 30px -14px rgba(255,92,0,.55)}
+  .phase.on .pn{color:var(--accent)}
+  .phase.on b{text-shadow:0 0 16px rgba(255,92,0,.5)}
+  .phase.on::after{background:var(--accent);box-shadow:0 0 10px rgba(255,92,0,.7)}
+  .phase.cleared{border-color:rgba(255,92,0,.35)}
+  .phase.cleared::after{background:rgba(255,92,0,.4)}
+
+  /* ── canonical spine ── */
+  .spine{position:relative;display:grid;grid-template-columns:repeat(9,1fr);gap:clamp(.3rem,.7vw,.7rem);align-items:stretch}
+  .track{position:absolute;left:0;right:0;top:50%;height:2px;transform:translateY(-50%);
+    background:rgba(244,241,234,.10);z-index:0;border-radius:2px}
+  .track .fill{position:absolute;left:0;top:0;height:100%;width:0;border-radius:2px;
+    background:linear-gradient(90deg,rgba(255,92,0,.25),var(--accent));box-shadow:0 0 12px rgba(255,92,0,.55)}
+  .pulse{position:absolute;top:50%;left:0;width:14px;height:14px;border-radius:50%;
+    background:var(--accent);transform:translate(-50%,-50%);z-index:3;
+    box-shadow:0 0 10px 3px rgba(255,92,0,.85),0 0 26px 8px rgba(255,92,0,.4)}
+  .pulse::after{content:"";position:absolute;inset:-9px;border-radius:50%;border:1px solid rgba(255,92,0,.5);animation:ring 1.4s ease-out infinite}
+  @keyframes ring{0%{transform:scale(.5);opacity:.9}100%{transform:scale(1.7);opacity:0}}
+
+  .node{position:relative;z-index:2;background:#101015;border:1px solid var(--hairline);
+    border-radius:11px;padding:clamp(.42rem,1vh,.72rem) clamp(.4rem,.7vw,.7rem);
+    display:flex;flex-direction:column;gap:.24rem;min-height:0;
+    transition:border-color .35s,box-shadow .35s,background .35s,transform .35s}
+  .node .ix{font-family:var(--mono);font-size:.56rem;letter-spacing:.18em;color:var(--muted)}
+  .node h3{font-family:var(--display);text-transform:uppercase;font-size:clamp(.72rem,1.15vw,1rem);
+    line-height:.98;letter-spacing:.01em;color:var(--ink)}
+  .node p{font-family:var(--mono);font-size:clamp(.48rem,.76vw,.62rem);line-height:1.32;color:var(--muted);letter-spacing:.02em}
+  .node .tag{margin-top:auto;font-family:var(--mono);font-size:.48rem;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--muted);opacity:.85}
+  .node.on{border-color:var(--accent);background:#16110d;transform:translateY(-3px);
+    box-shadow:0 0 0 1px var(--accent),0 10px 30px -10px rgba(255,92,0,.55),0 0 22px -4px rgba(255,92,0,.4)}
+  .node.on h3{text-shadow:0 0 16px rgba(255,92,0,.5)}
+  .node.on .tag{color:var(--accent);opacity:1}
+  .node.done{border-color:rgba(255,92,0,.4)}
+  .node.done .tag{color:rgba(255,92,0,.7)}
+
+  /* ── W0 seam ── */
+  .seam{position:relative;display:grid;grid-template-columns:repeat(9,1fr);gap:clamp(.3rem,.7vw,.7rem);padding-top:.15rem}
+  .seam .label{position:absolute;left:0;top:50%;transform:translateY(-50%);
+    font-family:var(--mono);font-size:.48rem;letter-spacing:.2em;color:var(--muted);text-transform:uppercase;opacity:.6}
+  .tap{grid-row:1;align-self:center;justify-self:center;position:relative;
+    font-family:var(--mono);font-size:.48rem;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--teal);border:1px dashed rgba(31,184,168,.5);border-radius:999px;
+    padding:.2rem .58rem;background:rgba(31,184,168,.05);white-space:nowrap;transition:.3s;opacity:.5}
+  .tap::before{content:"";position:absolute;left:50%;top:-11px;width:1px;height:11px;
+    background:repeating-linear-gradient(rgba(31,184,168,.5) 0 3px,transparent 3px 6px)}
+  .tap .fan{position:absolute;right:-7px;top:-7px;min-width:15px;height:15px;border-radius:999px;
+    background:var(--amber);color:#0b0b0d;font-size:.44rem;font-weight:700;display:grid;place-items:center;
+    padding:0 .25em;opacity:0;transform:scale(.5);transition:.22s}
+  .tap.fire{opacity:1;color:#bdfff5;border-color:var(--teal);
+    box-shadow:0 0 16px -1px rgba(31,184,168,.75);background:rgba(31,184,168,.16)}
+  .tap.fire .fan{opacity:1;transform:scale(1);box-shadow:0 0 10px rgba(255,176,0,.7)}
+
+  /* ── sponsor branches ── */
+  .branches{display:grid;grid-template-columns:repeat(9,1fr);gap:clamp(.3rem,.7vw,.7rem);align-items:stretch;flex:0 0 auto}
+  .card{position:relative;border:1.5px dashed rgba(31,184,168,.4);border-radius:11px;
+    background:rgba(31,184,168,.03);padding:clamp(.42rem,1vh,.72rem) clamp(.45rem,.8vw,.75rem);
+    display:flex;flex-direction:column;gap:.26rem;
+    transition:background .4s,border-color .4s,box-shadow .4s,transform .4s,opacity .4s;opacity:.62}
+  .card::before{content:"";position:absolute;left:50%;top:-15px;width:2px;height:15px;
+    transform:translateX(-50%) scaleY(.25);transform-origin:top;
+    background:linear-gradient(rgba(31,184,168,0),rgba(31,184,168,.55));opacity:.25;transition:.3s}
+  .card .w{font-family:var(--mono);font-size:.5rem;letter-spacing:.18em;color:var(--teal);text-transform:uppercase}
+  .card h4{font-family:var(--display);text-transform:uppercase;font-size:clamp(.76rem,1.18vw,1.02rem);line-height:.98;color:var(--ink)}
+  .card p{font-family:var(--mono);font-size:clamp(.46rem,.74vw,.6rem);line-height:1.38;color:var(--muted)}
+  .card .chip{margin-top:auto;align-self:flex-start;font-family:var(--mono);font-size:.44rem;
+    letter-spacing:.16em;text-transform:uppercase;color:var(--teal);
+    border:1px solid rgba(31,184,168,.4);border-radius:999px;padding:.15rem .48rem}
+  .card.flagship{border-color:rgba(31,184,168,.6)}
+  .card.flagship .chip{color:var(--amber);border-color:rgba(255,176,0,.45)}
+  .card.used{opacity:1;border-color:rgba(31,184,168,.6);background:rgba(31,184,168,.06)}
+  .card.used::before{opacity:.6;transform:translateX(-50%) scaleY(1)}
+  .card.fire{opacity:1;background:rgba(31,184,168,.14);border-color:var(--teal);
+    box-shadow:0 0 0 1px rgba(31,184,168,.55),0 12px 34px -14px rgba(31,184,168,.65),0 0 22px -5px rgba(31,184,168,.5);
+    transform:translateY(-3px);animation:pop .5s ease-out}
+  .card.fire::before{opacity:1;transform:translateX(-50%) scaleY(1);
+    background:linear-gradient(rgba(31,184,168,.2),var(--teal));box-shadow:0 0 9px rgba(31,184,168,.8);animation:beam .45s ease-out}
+  .card.fire h4{text-shadow:0 0 14px rgba(31,184,168,.55)}
+  @keyframes pop{0%{transform:translateY(-3px) scale(.965)}55%{transform:translateY(-3px) scale(1.018)}100%{transform:translateY(-3px) scale(1)}}
+  @keyframes beam{0%{transform:translateX(-50%) scaleY(0)}100%{transform:translateX(-50%) scaleY(1)}}
+
+  /* branches sit under their phase: W1→P1, W3→P2, (P3 is pure canonical), W2+W4→P4 */
+  .c-w1{grid-column:1 / 3}
+  .c-w3{grid-column:3 / 5}
+  .c-w2{grid-column:6 / 8}
+  .c-w4{grid-column:8 / 10}
+
+  .w4 .feed{display:grid;grid-template-columns:1fr 1fr;gap:.22rem .55rem;margin-top:.12rem}
+  .w4 .feed span{font-family:var(--mono);font-size:.48rem;letter-spacing:.04em;color:var(--muted);
+    display:flex;align-items:center;gap:.32rem;transition:.3s}
+  .w4 .feed span::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--muted);transition:.3s}
+  .w4 .feed span.live{color:#bdfff5}
+  .w4 .feed span.live::before{background:var(--teal);box-shadow:0 0 8px var(--teal)}
+
+  /* ── parallel-burst badge ── */
+  .burst{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(.86);
+    z-index:8;pointer-events:none;opacity:0;display:flex;align-items:center;gap:.7rem;
+    font-family:var(--mono);font-size:clamp(.6rem,1.1vw,.82rem);letter-spacing:.18em;text-transform:uppercase;
+    color:#0b0b0d;background:var(--amber);padding:.48rem .9rem;border-radius:999px;
+    box-shadow:0 0 0 1px rgba(255,176,0,.5),0 14px 40px -10px rgba(255,176,0,.55),0 0 30px -4px rgba(255,176,0,.5)}
+  .burst.teal{background:var(--teal);box-shadow:0 0 0 1px rgba(31,184,168,.5),0 14px 40px -10px rgba(31,184,168,.55),0 0 30px -4px rgba(31,184,168,.5)}
+  .burst .bars{display:flex;gap:3px;align-items:flex-end;height:13px}
+  .burst .bars i{width:3px;height:13px;background:#0b0b0d;border-radius:1px;animation:bb .6s ease-in-out infinite}
+  .burst .bars i:nth-child(2){animation-delay:-.2s}
+  .burst .bars i:nth-child(3){animation-delay:-.4s}
+  @keyframes bb{0%,100%{height:5px}50%{height:13px}}
+  .burst.show{animation:burstIn 1.25s cubic-bezier(.16,1,.3,1) forwards}
+  @keyframes burstIn{0%{opacity:0;transform:translate(-50%,-50%) scale(.86)}
+    10%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}
+    20%{transform:translate(-50%,-50%) scale(1)}
+    80%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+    100%{opacity:0;transform:translate(-50%,-50%) scale(1)}}
+
+  /* ── footer ── */
+  footer{flex:0 0 auto;display:flex;align-items:center;gap:clamp(.7rem,2vw,1.6rem)}
+  .transport{display:flex;align-items:center;gap:.7rem;flex:0 0 auto}
+  .pp{width:30px;height:30px;border-radius:50%;border:1px solid var(--hairline);
+    background:#141419;color:var(--ink);cursor:pointer;display:grid;place-items:center;transition:.25s}
+  .pp:hover{border-color:var(--accent);color:var(--accent)}
+  .pp svg{width:11px;height:11px;fill:currentColor}
+  .clock{font-family:var(--mono);font-size:.6rem;letter-spacing:.12em;color:var(--amber);min-width:6ch;text-align:right}
+  .stagelbl{font-family:var(--mono);font-size:.54rem;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);min-width:11ch}
+  .bar{flex:1 1 auto;height:2px;background:rgba(244,241,234,.1);border-radius:2px;overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:var(--accent);box-shadow:0 0 8px rgba(255,92,0,.6)}
+  .integrity{flex:0 0 auto;max-width:48ch;font-family:var(--mono);font-size:clamp(.44rem,.78vw,.58rem);
+    line-height:1.5;color:var(--muted);text-align:right}
+  .integrity b{color:var(--accent);letter-spacing:.12em;text-transform:uppercase}
+
+  @media (prefers-reduced-motion:reduce){
+    .pulse::after,.bar i,.burst .bars i,.card.fire,.card.fire::before{animation:none}
+  }
+  @media (max-width:900px){
+    body{overflow:auto}.stage{height:auto;min-height:100dvh}.legend{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+<div class="vignette" aria-hidden="true"></div>
+
+<main class="stage" id="stage" data-stage="-1">
+
+  <header>
+    <div class="mark">ROBIN<span class="dot">.</span></div>
+    <div class="title">
+      <b>Anatomy of one call</b>
+      <span>Four phases · everything inside them runs in parallel</span>
+    </div>
+    <div class="legend">
+      <span class="live"><i></i>Live · canonical path</span>
+      <span class="ext"><i></i>Flag-gated · additive</span>
+      <span class="par">▮▮▮ Concurrent fan-out</span>
+    </div>
+  </header>
+
+  <div class="pipe">
+
+    <!-- ── the 4 phases ── -->
+    <div class="phases" id="phases">
+      <div class="phase" data-p="0" style="grid-column:1 / 3">
+        <span class="pn">PHASE 01</span>
+        <b>Tell it the task</b>
+        <span class="ps">You call &amp; say what you want done</span>
+      </div>
+      <div class="phase" data-p="1" style="grid-column:3 / 5">
+        <span class="pn">PHASE 02</span>
+        <b>Get context &amp; make a plan</b>
+        <span class="ps">Robin researches the real leverage</span>
+      </div>
+      <div class="phase" data-p="2" style="grid-column:5 / 8">
+        <span class="pn">PHASE 03</span>
+        <b>Make the call for you</b>
+        <span class="ps">Dials out · negotiates · wins it</span>
+      </div>
+      <div class="phase" data-p="3" style="grid-column:8 / 10">
+        <span class="pn">PHASE 04</span>
+        <b>Report back</b>
+        <span class="ps">Message + email, with proof</span>
+      </div>
+    </div>
+
+    <!-- ── canonical spine ── -->
+    <div class="spine" id="spine">
+      <div class="track"><div class="fill" id="fill"></div></div>
+      <div class="pulse" id="pulse" aria-hidden="true"></div>
+
+      <div class="node" data-n="0">
+        <span class="ix">01</span><h3>Inbound call</h3>
+        <p>Caller phones Robin. Webhook turn, Svix-verified.</p>
+        <span class="tag">AgentPhone</span>
+      </div>
+      <div class="node" data-n="1">
+        <span class="ix">02</span><h3>Discovery</h3>
+        <p>Brainstorm → plan → confirm. Claude tool-loop.</p>
+        <span class="tag">run_turn</span>
+      </div>
+      <div class="node" data-n="2">
+        <span class="ix">03</span><h3>Context</h3>
+        <p>ContextPack loaded, system prompt rendered.</p>
+        <span class="tag">context_pack</span>
+      </div>
+      <div class="node" data-n="3">
+        <span class="ix">04</span><h3>Legal research</h3>
+        <p>Real cancellation statutes pulled live.</p>
+        <span class="tag">Browser&nbsp;Use</span>
+      </div>
+      <div class="node" data-n="4">
+        <span class="ix">05</span><h3>Outbound dial</h3>
+        <p>Robin dials the gym receptionist.</p>
+        <span class="tag">POST /v1/calls</span>
+      </div>
+      <div class="node" data-n="5">
+        <span class="ix">06</span><h3>Negotiation</h3>
+        <p>Escalate → two-option ultimatum → capitulation.</p>
+        <span class="tag">playbook</span>
+      </div>
+      <div class="node" data-n="6">
+        <span class="ix">07</span><h3>Classifier</h3>
+        <p>Transcript → DONE / NEEDS_APPROVAL / BLOCKED.</p>
+        <span class="tag">outcome</span>
+      </div>
+      <div class="node" data-n="7">
+        <span class="ix">08</span><h3>Report back</h3>
+        <p>Voice callback + the result, with proof.</p>
+        <span class="tag">deliver_result</span>
+      </div>
+      <div class="node" data-n="8">
+        <span class="ix">09</span><h3>Recording</h3>
+        <p>Full call stored &amp; surfaced in the dashboard.</p>
+        <span class="tag">GET /v1/calls/{id}</span>
+      </div>
+    </div>
+
+    <!-- ── W0 seam ── -->
+    <div class="seam" id="seam">
+      <span class="label">W0&nbsp;SEAM</span>
+      <div class="tap" id="tap-enrich" style="grid-column:2">prompt_enricher<span class="fan">×1</span></div>
+      <div class="tap" id="tap-research" style="grid-column:4">on_research<span class="fan">×2</span></div>
+      <div class="tap" id="tap-outcome" style="grid-column:8">on_outcome<span class="fan">×3</span></div>
+    </div>
+
+    <div class="burst" id="burst" aria-hidden="true">
+      <span class="bars"><i></i><i></i><i></i></span>
+      <span id="burst-txt">PARALLEL</span>
+    </div>
+
+    <!-- ── sponsor branches, grouped under their phase ── -->
+    <div class="branches" id="branches">
+
+      <div class="card c-w1" id="w1">
+        <span class="w">Phase 1 · W1 Super Memory</span>
+        <h4>Cross-call recall</h4>
+        <p>READS prior outcomes into discovery — “welcome back…”. WRITES this outcome + winning tactic after report (fire-and-forget).</p>
+        <span class="chip">Flag-gated · additive</span>
+      </div>
+
+      <div class="card c-w3" id="w3">
+        <span class="w">Phase 2 · W3 Moss</span>
+        <h4>Instant statute search</h4>
+        <p>&lt;10 ms semantic lookup over the pre-verified corpus — fires with the dashboard the instant research runs.</p>
+        <span class="chip">Flag-gated · additive</span>
+      </div>
+
+      <div class="card c-w2" id="w2">
+        <span class="w">Phase 4 · W2 Agent Mail</span>
+        <h4>Report back by email</h4>
+        <p>Same instant as the voice callback: confirmation email + a drafted regulator / certified-letter complaint.</p>
+        <span class="chip">Flag-gated · additive</span>
+      </div>
+
+      <div class="card c-w4 flagship w4" id="w4">
+        <span class="w">Phase 4 · W4 Live Dashboard — flagship</span>
+        <h4>Judge-facing projector</h4>
+        <p>EventBus subscribes to every hook; panels fill the instant each fires:</p>
+        <div class="feed">
+          <span id="f-tx">Transcript</span>
+          <span id="f-moss">Moss citation</span>
+          <span id="f-mem">Super Memory recall</span>
+          <span id="f-mail">Agent Mail artifact</span>
+        </div>
+        <span class="chip">Flagship · additive</span>
+      </div>
+
+    </div>
+  </div>
+
+  <footer>
+    <div class="transport">
+      <button class="pp" id="pp" aria-label="Play / pause">
+        <svg id="pp-i" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>
+      </button>
+      <span class="clock" id="clock">T+0.0s</span>
+      <span class="stagelbl" id="stagelbl">Inbound call</span>
+    </div>
+    <div class="bar"><i id="bar"></i></div>
+    <p class="integrity">
+      <b>Integrity</b> &nbsp;Canonical path runs flag-off — byte-identical to <code>main</code>. Extensions are additive, concurrent, no-op when disabled.
+    </p>
+  </footer>
+
+</main>
+
+<script>
+(function(){
+  var N = 9;
+  var $ = function(id){ return document.getElementById(id); };
+  var stage=$('stage'), spine=$('spine'), pulse=$('pulse'), fill=$('fill'),
+      bar=$('bar'), lbl=$('stagelbl'), clock=$('clock'), pp=$('pp'), ppI=$('pp-i'),
+      burst=$('burst'), burstTxt=$('burst-txt');
+  var nodes  = [].slice.call(spine.querySelectorAll('.node'));
+  var phases = [].slice.call(document.querySelectorAll('.phase'));
+  var tapEnrich=$('tap-enrich'), tapResearch=$('tap-research'), tapOutcome=$('tap-outcome');
+  var w1=$('w1'), w2=$('w2'), w3=$('w3'), w4=$('w4');
+  var fTx=$('f-tx'), fMoss=$('f-moss'), fMem=$('f-mem'), fMail=$('f-mail');
+
+  var NAMES = ["Inbound call","Discovery","Context","Legal research",
+               "Outbound dial","Negotiation","Classifier","Report back","Recording"];
+  // node index → phase index (0..3)
+  function phaseOf(idx){ return idx<=1 ? 0 : idx<=3 ? 1 : idx<=6 ? 2 : 3; }
+
+  var DWELL = 760, TRAVEL = 360;
+  var segs = [], t = 0;
+  for (var i=0;i<N;i++){
+    segs.push({tStart:t, node:i}); t += DWELL;
+    if (i<N-1){ segs.push({tStart:t, travelFrom:i}); t += TRAVEL; }
+  }
+  var SPAN = t, TOTAL = t + 1500, SYNTH = 4.0;
+
+  function centerPct(i){ return (i + 0.5) / N * 100; }
+  var playing = true, startTs = null, raf = null, lastIdx = -1, climaxed = false;
+  function reduced(){ return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+
+  function showBurst(txt, teal){
+    burstTxt.textContent = txt;
+    burst.classList.toggle('teal', !!teal);
+    burst.classList.remove('show'); void burst.offsetWidth; burst.classList.add('show');
+  }
+  function refire(el){ el.classList.remove('fire'); void el.offsetWidth; el.classList.add('fire'); }
+
+  function dispatch(idx){
+    if (idx === 1){                                  // Phase 1 · prompt_enricher → W1 recall
+      tapEnrich.classList.add('fire');
+      w1.classList.add('used'); refire(w1);
+      fMem.classList.add('live');
+      showBurst('Phase 1 · recall — prompt-enriched', true);
+    } else if (idx === 3){                            // Phase 2 · on_research → W3 + W4  (×2)
+      tapResearch.classList.add('fire');
+      w3.classList.add('used'); w4.classList.add('used');
+      refire(w3); refire(w4);
+      fTx.classList.add('live'); fMoss.classList.add('live');
+      showBurst('Phase 2 · parallel ×2 — on_research', true);
+    } else if (idx === 7){                            // Phase 4 · on_outcome → W1 + W2 + W4  (×3)
+      tapOutcome.classList.add('fire');
+      w1.classList.add('used'); w2.classList.add('used'); w4.classList.add('used');
+      refire(w1); refire(w2); refire(w4);
+      fMem.classList.add('live'); fMail.classList.add('live');
+      showBurst('Phase 4 · parallel ×3 — fire-and-forget', false);
+    }
+  }
+
+  function setPhase(idx){
+    var p = phaseOf(idx);
+    phases.forEach(function(ph,k){
+      ph.classList.toggle('on', k===p);
+      if (k<p) ph.classList.add('cleared');
+    });
+  }
+
+  function climax(){
+    climaxed = true;
+    [w1,w2,w3,w4].forEach(function(c){ c.classList.add('used'); refire(c); });
+    [tapEnrich,tapResearch,tapOutcome].forEach(function(x){ x.classList.add('fire'); });
+    [fTx,fMoss,fMem,fMail].forEach(function(x){ x.classList.add('live'); });
+    nodes.forEach(function(n){ n.classList.add('done'); });
+    phases.forEach(function(ph){ ph.classList.add('on','cleared'); });
+    lbl.textContent = 'One call · in parallel';
+    showBurst('One call — four phases, everything in parallel', false);
+  }
+
+  function resetCycle(){
+    lastIdx = -1; climaxed = false;
+    nodes.forEach(function(n){ n.classList.remove('on','done'); });
+    phases.forEach(function(ph){ ph.classList.remove('on','cleared'); });
+    [w1,w2,w3,w4].forEach(function(c){ c.classList.remove('fire','used'); });
+    [tapEnrich,tapResearch,tapOutcome].forEach(function(x){ x.classList.remove('fire'); });
+    [fTx,fMoss,fMem,fMail].forEach(function(x){ x.classList.remove('live'); });
+  }
+
+  function setSpine(idx){
+    stage.setAttribute('data-stage', idx);
+    lbl.textContent = NAMES[idx] || NAMES[N-1];
+    nodes.forEach(function(n,k){
+      n.classList.toggle('on', k===idx);
+      if (k<idx) n.classList.add('done');
+    });
+    setPhase(idx);
+    if (idx !== lastIdx){ lastIdx = idx; dispatch(idx); }
+  }
+
+  function frame(ts){
+    if (startTs===null) startTs = ts;
+    var e = ts - startTs;
+    if (e >= TOTAL){ startTs = ts; e = 0; resetCycle(); }
+
+    bar.style.width = (e/TOTAL*100).toFixed(2) + '%';
+    clock.textContent = 'T+' + Math.min(SYNTH, e/TOTAL*SYNTH).toFixed(1) + 's';
+
+    if (e >= SPAN){
+      pulse.style.left = '95%'; fill.style.width = '95%';
+      if (!climaxed) climax();
+      if (playing) raf = requestAnimationFrame(frame);
+      return;
+    }
+
+    var posPct, active = 0, seg = segs[0];
+    for (var i=0;i<segs.length;i++){ if (e >= segs[i].tStart) seg = segs[i]; else break; }
+    if (seg.node!==undefined){
+      active = seg.node; posPct = centerPct(seg.node);
+    } else {
+      var from = seg.travelFrom;
+      var p = Math.min(1,(e - seg.tStart)/TRAVEL);
+      var ease = p<.5 ? 2*p*p : 1-Math.pow(-2*p+2,2)/2;
+      active = ease<.5 ? from : from+1;
+      posPct = centerPct(from) + (centerPct(from+1)-centerPct(from))*ease;
+    }
+    pulse.style.left = posPct + '%';
+    fill.style.width = posPct + '%';
+    setSpine(active);
+    if (playing) raf = requestAnimationFrame(frame);
+  }
+
+  function play(){
+    playing = true;
+    ppI.innerHTML = '<rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/>';
+    raf = requestAnimationFrame(frame);
+  }
+  function pause(){
+    playing = false;
+    if (raf) cancelAnimationFrame(raf);
+    ppI.innerHTML = '<path d="M8 5l11 7-11 7z"/>';
+  }
+  pp.addEventListener('click', function(){ playing ? pause() : play(); });
+
+  if (reduced()){
+    pulse.style.left='95%'; fill.style.width='95%'; bar.style.width='100%';
+    stage.setAttribute('data-stage', N-1);
+    clock.textContent = 'T+'+SYNTH.toFixed(1)+'s';
+    climax();
+    burst.style.opacity = 1; burst.style.transform = 'translate(-50%,-50%) scale(1)';
+    pause();
+  } else {
+    play();
+  }
+})();
+</script>
+</body>
+</html>

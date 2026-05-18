@@ -1,4 +1,6 @@
 # tests/test_classifier.py
+import pytest
+
 from robin.classifier import classify_transcript
 from robin.models import OutcomeStatus
 
@@ -41,3 +43,44 @@ def test_done_wins_even_if_otp_mentioned_earlier():
 def test_empty_transcript_is_blocked():
     o = classify_transcript("")
     assert o.status == OutcomeStatus.BLOCKED
+
+
+# ---------------------------------------------------------------------------
+# New gap coverage
+# ---------------------------------------------------------------------------
+
+def test_standalone_otp_uppercase_triggers_needs_approval():
+    """Uppercase 'OTP' as a standalone word → NEEDS_APPROVAL (covers line 33)."""
+    o = classify_transcript("Please enter the OTP sent to your phone.")
+    assert o.status == OutcomeStatus.NEEDS_APPROVAL
+    assert o.detail == "verification gate: OTP"
+
+
+def test_confirmation_present_without_refund_is_blocked():
+    """Confirmation number alone is not enough — 'refund' must also appear."""
+    o = classify_transcript("Cancelled. Confirmation is 24HF-9999.")
+    assert o.status == OutcomeStatus.BLOCKED
+
+
+def test_done_on_runsheet_capitulation_line():
+    """The exact demo-runsheet capitulation line → DONE with correct confirmation."""
+    tx = ("Fine — I'll cancel your subscription and refund your last month. "
+          "Your confirmation number is 24HF-4471.")
+    o = classify_transcript(tx)
+    assert o.status == OutcomeStatus.DONE
+    assert o.confirmation == "24HF-4471"
+    assert o.detail == "cancellation confirmed with last-month refund"
+
+
+@pytest.mark.parametrize("phrase", [
+    "one-time code",
+    "verification code",
+    "security question",
+    "verify your identity",
+    "text you a code",
+])
+def test_each_approval_phrase_triggers_needs_approval(phrase):
+    """Every phrase in _APPROVAL_PHRASES → NEEDS_APPROVAL."""
+    o = classify_transcript(f"Agent: I need to {phrase} to continue.")
+    assert o.status == OutcomeStatus.NEEDS_APPROVAL
+    assert phrase in o.detail
