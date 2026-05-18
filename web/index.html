@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>ROBIN — every superhuman needs a sidekick</title>
+<meta name="description" content="Robin: phone your agent. Tell it what you want. Give it a number. It makes the call you hate." />
+<meta name="theme-color" content="#0b0b0d" />
+<meta property="og:title" content="ROBIN — every superhuman needs a sidekick" />
+<meta property="og:description" content="You call it, explain what you want, give it a number — Robin handles the rest." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@500;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0b0b0d;
+    --ink:#f4f1ea;
+    --accent:#ff5c00;
+    --teal:#1fb8a8;
+    --amber:#ffb000;
+    --muted:#6b6b72;
+    --hairline:rgba(244,241,234,.12);
+    --display:"Anton","Arial Narrow",Impact,"Helvetica Neue",sans-serif;
+    --body:"Archivo","Helvetica Neue",Arial,sans-serif;
+    --mono:"Space Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--body);
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    overflow-x:hidden;
+  }
+
+  /* ── scroll-snap rail ───────────────────────────────── */
+  .rail{
+    height:100dvh;
+    overflow-y:scroll;
+    scroll-snap-type:y mandatory;
+    scroll-behavior:smooth;
+  }
+  .rail::-webkit-scrollbar{width:0;background:transparent}
+  .rail{scrollbar-width:none}
+
+  section{
+    position:relative;
+    min-height:100dvh;
+    scroll-snap-align:start;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    text-align:center;
+    padding:clamp(1.5rem,5vw,5rem) clamp(1.25rem,6vw,7rem);
+    isolation:isolate;
+    overflow:hidden;
+  }
+
+  /* ── film grain + vignette (whole page) ─────────────── */
+  .grain,.vignette{position:fixed;inset:0;pointer-events:none;z-index:50}
+  .grain{
+    opacity:.05;
+    mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+  .vignette{
+    z-index:49;
+    background:radial-gradient(120% 95% at 50% 42%,transparent 38%,rgba(0,0,0,.55) 100%);
+  }
+
+  /* ── bloom behind hero words ────────────────────────── */
+  .bloom{
+    position:absolute;z-index:-1;border-radius:50%;
+    filter:blur(90px);opacity:.5;
+  }
+  .bloom.orange{background:var(--accent)}
+  .bloom.teal{background:var(--teal);opacity:.16}
+
+  /* ── reveal animation ───────────────────────────────── */
+  .r{opacity:0;transform:translateY(26px);transition:opacity 1s cubic-bezier(.16,1,.3,1),transform 1s cubic-bezier(.16,1,.3,1)}
+  .in .r{opacity:1;transform:none}
+  .in .r.d1{transition-delay:.12s}
+  .in .r.d2{transition-delay:.30s}
+  .in .r.d3{transition-delay:.52s}
+  .in .r.d4{transition-delay:.78s}
+  @media (prefers-reduced-motion:reduce){
+    .r{opacity:1!important;transform:none!important;transition:none!important}
+    html,.rail{scroll-behavior:auto}
+  }
+
+  /* ── shared type ────────────────────────────────────── */
+  .kicker{
+    font-family:var(--mono);
+    font-size:clamp(.62rem,1.15vw,.82rem);
+    letter-spacing:.42em;
+    text-transform:uppercase;
+    color:var(--muted);
+  }
+  .display{
+    font-family:var(--display);
+    line-height:.92;
+    letter-spacing:.01em;
+    text-transform:uppercase;
+  }
+  .accent{color:var(--accent)}
+  .glow{text-shadow:0 0 38px rgba(255,92,0,.55),0 0 6px rgba(255,92,0,.35)}
+
+  /* ── §1 hook ────────────────────────────────────────── */
+  #hook .lead{
+    font-family:var(--display);
+    font-size:clamp(2.4rem,7.4vw,6.4rem);
+    line-height:.96;
+    text-transform:uppercase;
+    letter-spacing:.005em;
+    max-width:14ch;
+  }
+  #hook .lead em{font-style:normal;color:var(--muted)}
+  #hook .reveal{
+    margin-top:clamp(1.4rem,3.4vw,2.6rem);
+    display:flex;flex-direction:column;align-items:center;gap:.2em;
+  }
+  #hook .reveal .here{
+    font-family:var(--mono);font-size:clamp(.8rem,1.7vw,1.05rem);
+    letter-spacing:.34em;text-transform:uppercase;color:var(--ink);opacity:.78;
+  }
+  #hook .robin{
+    font-family:var(--display);
+    font-size:clamp(4.4rem,17vw,13rem);
+    letter-spacing:.06em;
+  }
+  .steps{
+    margin-top:clamp(1.5rem,3.6vw,2.4rem);
+    font-family:var(--mono);
+    font-size:clamp(.6rem,1.25vw,.86rem);
+    letter-spacing:.26em;
+    text-transform:uppercase;
+    color:var(--ink);opacity:.62;
+    display:flex;flex-wrap:wrap;justify-content:center;gap:.55em 1.1em;
+  }
+  .steps b{color:var(--accent);font-weight:400;padding:0 .15em}
+
+  /* waveform */
+  .wave{display:flex;align-items:center;gap:5px;height:34px;margin-top:clamp(1.6rem,4vw,2.6rem)}
+  .wave i{
+    width:4px;border-radius:2px;background:var(--accent);
+    box-shadow:0 0 12px rgba(255,92,0,.55);
+    animation:eq 1.15s ease-in-out infinite;
+  }
+  .wave i:nth-child(1){animation-delay:-.9s}
+  .wave i:nth-child(2){animation-delay:-.2s}
+  .wave i:nth-child(3){animation-delay:-.55s}
+  .wave i:nth-child(4){animation-delay:-.05s}
+  .wave i:nth-child(5){animation-delay:-.7s}
+  .wave i:nth-child(6){animation-delay:-.35s}
+  .wave i:nth-child(7){animation-delay:-.8s}
+  @keyframes eq{0%,100%{height:7px;opacity:.45}50%{height:34px;opacity:1}}
+
+  /* scroll cue */
+  .cue{
+    position:absolute;bottom:clamp(1rem,3vh,2.2rem);left:50%;transform:translateX(-50%);
+    font-family:var(--mono);font-size:.62rem;letter-spacing:.34em;text-transform:uppercase;
+    color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:.7rem;
+  }
+  .cue span{display:block;width:1px;height:34px;background:linear-gradient(var(--muted),transparent);animation:drop 1.9s ease-in-out infinite}
+  @keyframes drop{0%{opacity:0;transform:scaleY(.3)}45%{opacity:1}100%{opacity:0;transform:translateY(14px) scaleY(.3)}}
+
+  /* ── §2 the waste ───────────────────────────────────── */
+  #waste .kicker{margin-bottom:clamp(.4rem,1.6vh,1.1rem)}
+  #waste .stat{
+    font-family:var(--display);
+    font-size:clamp(6rem,18vw,12.5rem);
+    line-height:.82;
+    letter-spacing:-.01em;
+    position:relative;
+  }
+  #waste .stat .plus{
+    color:var(--accent);
+    font-size:.42em;
+    vertical-align:.55em;
+    margin-left:.04em;
+    text-shadow:0 0 28px rgba(255,92,0,.5);
+  }
+  #waste .stat .wk{
+    display:block;
+    font-size:clamp(1rem,2.6vw,1.9rem);
+    letter-spacing:.5em;
+    color:var(--ink);opacity:.55;
+    margin-top:.3em;
+  }
+  #waste .head{
+    font-family:var(--display);
+    font-size:clamp(1.5rem,4.4vw,3.1rem);
+    line-height:1.02;
+    text-transform:uppercase;
+    margin-top:clamp(1rem,2.6vh,1.9rem);
+    max-width:22ch;
+  }
+  #waste .mutter{
+    margin-top:clamp(.9rem,2.2vh,1.5rem);
+    font-family:var(--mono);
+    font-size:clamp(.6rem,1.2vw,.84rem);
+    letter-spacing:.16em;
+    color:var(--muted);
+    opacity:.6;
+    max-width:58ch;
+    text-transform:lowercase;
+  }
+  #waste .turn{
+    margin-top:clamp(1.4rem,3.4vh,2.6rem);
+    font-family:var(--display);
+    font-size:clamp(1.4rem,4vw,2.9rem);
+    text-transform:uppercase;
+    color:var(--muted);
+    line-height:1.06;
+  }
+  #waste .turn .italy{
+    color:var(--amber);
+    text-shadow:0 0 34px rgba(255,176,0,.4);
+  }
+
+  /* ── §3 live demo ───────────────────────────────────── */
+  #demo{padding-bottom:clamp(7rem,16vh,10rem)}
+  #demo .head{
+    font-family:var(--display);
+    font-size:clamp(2.4rem,8vw,6.6rem);
+    line-height:.95;
+    text-transform:uppercase;
+    max-width:15ch;
+  }
+  #demo .setup{
+    margin-top:clamp(1.4rem,3.4vw,2.2rem);
+    font-family:var(--body);
+    font-weight:500;
+    font-size:clamp(.95rem,2vw,1.32rem);
+    line-height:1.5;
+    color:var(--ink);opacity:.74;
+    max-width:34ch;
+  }
+  #demo .setup b{color:var(--ink);opacity:1;font-weight:700}
+  .call{
+    margin-top:clamp(2rem,5vw,3.2rem);
+    display:flex;flex-direction:column;align-items:center;gap:1.1rem;
+  }
+  .ring{
+    --s:clamp(76px,12vw,104px);
+    width:var(--s);height:var(--s);border-radius:50%;
+    display:grid;place-items:center;position:relative;
+    background:var(--accent);
+    box-shadow:0 0 0 0 rgba(255,92,0,.55);
+    animation:pulse 2.1s cubic-bezier(.66,0,0,1) infinite;
+  }
+  .ring svg{width:42%;height:42%;fill:#0b0b0d}
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(255,92,0,.55)}
+    70%{box-shadow:0 0 0 34px rgba(255,92,0,0)}
+    100%{box-shadow:0 0 0 0 rgba(255,92,0,0)}
+  }
+  .call .now{
+    font-family:var(--mono);font-size:clamp(.66rem,1.4vw,.9rem);
+    letter-spacing:.4em;text-transform:uppercase;color:var(--accent);
+  }
+  .call .num{
+    font-family:var(--mono);font-size:.72rem;letter-spacing:.28em;
+    text-transform:uppercase;color:var(--muted);
+  }
+
+  /* honesty disclosure band — persistent, legible, not a popup */
+  .disclosure{
+    position:absolute;left:0;right:0;bottom:0;
+    border-top:1px solid var(--hairline);
+    background:rgba(8,8,10,.86);
+    backdrop-filter:saturate(120%) blur(2px);
+    padding:clamp(.7rem,2vw,1.05rem) clamp(1.1rem,5vw,3.2rem);
+    z-index:40;
+  }
+  .disclosure p{
+    margin:0 auto;max-width:96ch;
+    font-family:var(--mono);
+    font-size:clamp(.56rem,1.15vw,.74rem);
+    line-height:1.65;letter-spacing:.04em;
+    color:#9a9aa2;text-transform:none;
+  }
+  .disclosure .tag{color:var(--accent);letter-spacing:.22em;text-transform:uppercase;font-weight:700}
+
+  /* progress dots */
+  .dots{position:fixed;right:clamp(.9rem,2.5vw,1.8rem);top:50%;transform:translateY(-50%);
+    display:flex;flex-direction:column;gap:.85rem;z-index:60}
+  .dots a{width:8px;height:8px;border-radius:50%;border:1px solid var(--muted);
+    transition:.35s;display:block}
+  .dots a.on{background:var(--accent);border-color:var(--accent);box-shadow:0 0 12px rgba(255,92,0,.6)}
+  @media (max-width:640px){.dots{display:none}}
+
+  /* wordmark */
+  .mark{position:fixed;top:clamp(1rem,3vw,1.8rem);left:clamp(1.1rem,4vw,2.6rem);z-index:60;
+    font-family:var(--display);font-size:clamp(1rem,2vw,1.3rem);letter-spacing:.32em;
+    color:var(--ink);opacity:.62}
+  .mark .dot{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<div class="grain" aria-hidden="true"></div>
+<div class="vignette" aria-hidden="true"></div>
+<div class="mark" aria-hidden="true">ROBIN<span class="dot">.</span></div>
+
+<nav class="dots" aria-label="Sections">
+  <a href="#hook" data-t="hook" class="on" aria-label="The hook"></a>
+  <a href="#waste" data-t="waste" aria-label="The waste"></a>
+  <a href="#demo" data-t="demo" aria-label="Live demo"></a>
+</nav>
+
+<main class="rail" id="rail">
+
+  <!-- ─────────────── §1 · THE HOOK ─────────────── -->
+  <section id="hook">
+    <div class="bloom orange" style="width:46vw;height:46vw;max-width:560px;max-height:560px;top:8%"></div>
+    <div class="bloom teal" style="width:60vw;height:40vw;bottom:-10%;left:-10%"></div>
+
+    <p class="kicker r">A sidekick for the calls you hate</p>
+
+    <h1 class="lead r d1">Every <em>superhuman</em><br/>needs a sidekick.</h1>
+
+    <div class="reveal">
+      <span class="here r d2">Here is yours.</span>
+      <span class="robin display accent glow r d3">ROBIN</span>
+    </div>
+
+    <p class="steps r d4">
+      Call it <b>·</b> Tell it what you want <b>·</b> Give it a number <b>·</b> It handles the rest
+    </p>
+
+    <div class="wave r d4" aria-hidden="true">
+      <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+    </div>
+
+    <div class="cue" aria-hidden="true">Scroll<span></span></div>
+  </section>
+
+  <!-- ─────────────── §2 · THE WASTE ─────────────── -->
+  <section id="waste">
+    <div class="bloom orange" style="width:34vw;height:34vw;max-width:420px;max-height:420px;opacity:.16;top:18%"></div>
+
+    <p class="kicker r">The math nobody does</p>
+
+    <div class="stat display r d1">
+      100<span class="plus">+</span><span class="wk">Days</span>
+    </div>
+
+    <h2 class="head r d2">You'll spend 100+ days<br/>of your life on hold.</h2>
+
+    <p class="mutter r d3">
+      t&#8209;mobile&nbsp;·&nbsp;amazon&nbsp;·&nbsp;the gym&nbsp;·&nbsp;insurance&nbsp;·&nbsp;hold music&nbsp;·&nbsp;transfers&nbsp;·&nbsp;&ldquo;please stay on the line&rdquo;
+    </p>
+
+    <p class="turn r d4">
+      You could have spent<br/>that time <span class="italy">in Italy.</span>
+    </p>
+  </section>
+
+  <!-- ─────────────── §3 · LIVE DEMO ─────────────── -->
+  <section id="demo">
+    <div class="bloom orange" style="width:40vw;height:40vw;max-width:500px;max-height:500px;top:6%"></div>
+
+    <p class="kicker r">Live, right now</p>
+
+    <h2 class="head r d1">Let's cancel my<br/>gym membership.</h2>
+
+    <p class="setup r d2">
+      New Year's resolution: get back to the gym.
+      Reality: I haven't gone. So &mdash; let's cancel
+      <b>24&nbsp;Hour&nbsp;Fitness</b>, and let Robin make the call.
+    </p>
+
+    <div class="call r d3">
+      <div class="ring" role="img" aria-label="Placing the call">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.2.2 2.4.6 3.6.1.4 0 .8-.2 1l-2.3 2.2z"/></svg>
+      </div>
+      <span class="now">The demo starts now</span>
+      <span class="num">Dialing&nbsp;&mdash;&nbsp;stand by</span>
+    </div>
+
+    <div class="disclosure">
+      <p>
+        <span class="tag">Honest by design&nbsp;&nbsp;</span>
+        The receptionist is a briefed teammate openly role&#8209;playing the
+        24&nbsp;Hour&nbsp;Fitness front desk &mdash; not an AI, and not the real
+        company. The real company is never called. The pipeline is real:
+        live web research, real inbound discovery, real outbound call.
+        Both call sides are scripted and stated to be.
+      </p>
+    </div>
+  </section>
+
+</main>
+
+<script>
+  (function () {
+    var sections = document.querySelectorAll("section");
+    var dots = document.querySelectorAll(".dots a");
+
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) {
+          e.target.classList.add("in");
+          var id = e.target.id;
+          dots.forEach(function (d) {
+            d.classList.toggle("on", d.getAttribute("data-t") === id);
+          });
+        }
+      });
+    }, { threshold: 0.45 });
+
+    sections.forEach(function (s) { io.observe(s); });
+
+    // smooth-scroll the rail (not the body) for the dot nav
+    dots.forEach(function (d) {
+      d.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        var t = document.getElementById(d.getAttribute("data-t"));
+        if (t) t.scrollIntoView({ behavior: "smooth" });
+      });
+    });
+  })();
+</script>
+</body>
+</html>

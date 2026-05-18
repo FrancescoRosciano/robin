@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 *.local.json
+context_pack.json
 context_pack.local.json
 
 # Python
@@ -24,3 +25,6 @@ htmlcov/
 # Runtime artifacts (cloudflared tunnel — Plan 05)
 scripts/.tunnel.pid
 scripts/.tunnel.log
+
+
+assets/hackathon_info/

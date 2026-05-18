@@ -15,10 +15,11 @@ transcript page when the first turn renders.
      Font: white on black, centered, maximum size.
      ============================================================ -->
 
-**AI SIMULATION**
+**CONTROLLED DEMO**
 
-The receptionist in this call is an AI agent.
-The real 24 Hour Gym is never called.
+Robin's side is fully live — real web research, real call, real callback.
+The receptionist runs in a safe test environment (a briefed teammate);
+no real business is contacted.
 
 ---
 
@@ -30,5 +31,6 @@ The real 24 Hour Gym is never called.
 
 <!-- Legal research is real. Cancellation laws cited are pre-verified
      against primary sources (see src/robin/fixtures/law.html).
-     Both call sides (Robin's playbook + simulated receptionist) are
-     scripted and disclosed. No faked video; no fake repo. -->
+     Both call sides (Robin's playbook + the teammate's receptionist
+     cheat card) are scripted and disclosed. No faked video; no fake
+     repo. -->
