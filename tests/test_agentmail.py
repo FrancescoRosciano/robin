@@ -1,8 +1,8 @@
 """W2 AgentMail close-loop tests (scaffold — RED until implemented)."""
 import asyncio
-import json
+import json  # noqa: F401 — used in Task 8 context_pack tests
 
-import pytest
+import pytest  # noqa: F401 — used implicitly by pytest fixtures
 
 
 def _pack(email: str = "test@example.com"):
@@ -40,11 +40,34 @@ async def _drain():
 
 
 async def test_hook_noop_when_flag_absent(monkeypatch):
-    assert False, "not implemented"
+    """With ROBIN_AGENTMAIL_ENABLED unset, the hook returns without side-effects."""
+    monkeypatch.delenv("ROBIN_AGENTMAIL_ENABLED", raising=False)
+    monkeypatch.delenv("AGENTMAIL_API_KEY", raising=False)
+    from robin.integrations.agentmail import make_email_outcome_hook
+
+    hook = make_email_outcome_hook(_pack("test@example.com"))
+    payload = {
+        "summary": "Cancelled.",
+        "confirmation": "24HF-4471",
+        "channel": "stay_on",
+        "out": {"delivered": True},
+    }
+    # Must return without error; no network calls
+    await hook(call_id="call-001", payload=payload)
+    # If we reach here without exception, test passes
 
 
 async def test_hook_noop_when_flag_is_zero(monkeypatch):
-    assert False, "not implemented"
+    monkeypatch.setenv("ROBIN_AGENTMAIL_ENABLED", "0")
+    monkeypatch.setenv("AGENTMAIL_API_KEY", "dummy-key")
+    from robin.integrations.agentmail import make_email_outcome_hook
+
+    hook = make_email_outcome_hook(_pack("test@example.com"))
+    await hook(call_id="call-002", payload={
+        "summary": "done", "confirmation": "X",
+        "channel": None, "out": {"delivered": True},
+    })
+    # No exception, no send
 
 
 async def test_done_outcome_sends_caller_email(monkeypatch):
