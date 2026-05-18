@@ -3,7 +3,6 @@
 Each test is self-contained: no live telephony, no real SDKs, no env vars.
 All async tests use pytest-asyncio (already in requirements-dev.txt).
 """
-import asyncio
 import pytest
 
 # These imports will fail until the seam is implemented (that's the RED step).
